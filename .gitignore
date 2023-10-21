@@ -1,0 +1,6 @@
+cmd/explore/
+.vscode
+.DS_Store
+*.log
+data
+_build

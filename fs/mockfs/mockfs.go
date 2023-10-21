@@ -1,0 +1,190 @@
+package mockfs
+
+import (
+	"arc/fs"
+	"arc/stream"
+	"cmp"
+	"encoding/csv"
+	"os"
+	"slices"
+	"strconv"
+	"sync/atomic"
+	"time"
+)
+
+type fsys struct {
+	scan     bool
+	commands *stream.Stream[command]
+	events   chan fs.Event
+	quit     atomic.Bool
+}
+
+type command interface {
+	command()
+}
+
+type (
+	scan struct{ root string }
+	copy struct {
+		path     string
+		fromRoot string
+		toRoots  []string
+	}
+	rename struct {
+		root       string
+		sourcePath string
+		targetPath string
+	}
+	delete struct {
+		path string
+	}
+)
+
+func (scan) command()   {}
+func (copy) command()   {}
+func (rename) command() {}
+func (delete) command() {}
+
+func NewFS(scan bool) fs.FS {
+	fs := &fsys{
+		scan:     scan,
+		commands: stream.NewStream[command]("commands"),
+		events:   make(chan fs.Event, 256),
+	}
+	go fs.run()
+	return fs
+}
+
+func (fs *fsys) Events() <-chan fs.Event {
+	return fs.events
+}
+
+func (fs *fsys) Scan(root string) {
+	fs.commands.Push(scan{root: root})
+}
+
+func (fs *fsys) Copy(path, fromRoot string, toRoots ...string) {
+	fs.commands.Push(copy{path: path, fromRoot: fromRoot, toRoots: toRoots})
+}
+
+func (fs *fsys) Rename(root, sourcePath, targetPath string) {
+	fs.commands.Push(rename{root: root, sourcePath: sourcePath, targetPath: targetPath})
+}
+
+func (fs *fsys) Delete(path string) {
+	fs.commands.Push(delete{path: path})
+}
+
+func (fs *fsys) Quit() {
+	fs.quit.Store(true)
+}
+
+func (fs *fsys) run() {
+	for !fs.quit.Load() {
+		commands, _ := fs.commands.Pull()
+		for _, command := range commands {
+			switch cmd := command.(type) {
+			case scan:
+				fs.scanArchive(cmd)
+			case copy:
+				fs.copyFile(cmd)
+			case rename:
+				fs.renameFile(cmd)
+			case delete:
+				fs.deleteFile(cmd)
+			}
+		}
+	}
+}
+
+func (f *fsys) scanArchive(scan scan) {
+	f.events <- archives[scan.root]
+	for _, file := range archives[scan.root] {
+		if f.quit.Load() {
+			return
+		}
+
+		if f.scan {
+			for progress := 0; progress < file.Size; progress += 10000000 {
+				if f.quit.Load() {
+					return
+				}
+				f.events <- fs.Progress{
+					Root:     scan.root,
+					Path:     file.Path,
+					Progress: progress,
+				}
+			}
+		}
+
+		f.events <- file
+	}
+
+	f.events <- fs.ArchiveHashed{Root: scan.root}
+}
+
+func (fs *fsys) copyFile(copy copy) {
+}
+
+func (fs *fsys) renameFile(rename rename) {
+}
+
+func (fs *fsys) deleteFile(delete delete) {
+}
+
+var archives = map[string]fs.FileMetas{}
+
+func init() {
+	or := readMeta()
+	c1 := slices.Clone(or)
+	for _, file := range c1 {
+		file.Root = "copy 1"
+	}
+	c2 := slices.Clone(or)
+	for _, file := range c1 {
+		file.Root = "copy 2"
+	}
+	archives = map[string]fs.FileMetas{
+		"origin": or,
+		"copy 1": c1,
+		"copy 2": c2,
+	}
+}
+
+func readMeta() fs.FileMetas {
+	result := fs.FileMetas{}
+	hashInfoFile, err := os.Open("data/.meta.csv")
+	if err != nil {
+		return nil
+	}
+	defer hashInfoFile.Close()
+
+	records, err := csv.NewReader(hashInfoFile).ReadAll()
+	if err != nil || len(records) == 0 {
+		return nil
+	}
+
+	for _, record := range records[1:] {
+		if len(record) == 5 {
+			name := record[1]
+			size, er2 := strconv.ParseUint(record[2], 10, 64)
+			modTime, er3 := time.Parse(time.RFC3339, record[3])
+			modTime = modTime.UTC().Round(time.Second)
+			hash := record[4]
+			if hash == "" || er2 != nil || er3 != nil {
+				continue
+			}
+
+			result = append(result, fs.FileMeta{
+				Path:    name,
+				Hash:    hash,
+				Size:    int(size),
+				ModTime: modTime,
+			})
+		}
+	}
+	slices.SortFunc(result, func(a, b fs.FileMeta) int {
+		return cmp.Compare(a.Path, b.Path)
+	})
+	return result
+}
