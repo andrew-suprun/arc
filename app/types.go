@@ -3,7 +3,6 @@ package app
 import (
 	"arc/fs"
 	"arc/log"
-	"path/filepath"
 	"slices"
 	"time"
 )
@@ -136,17 +135,11 @@ func (f *file) path() (result []string) {
 	return result
 }
 
-func (m *file) fullPath() string {
-	if m.parent == nil {
-		return ""
+func (f *file) fullPath() (result []string) {
+	result = append(result, f.name)
+	for f.parent != nil {
+		result = append(result, f.parent.name)
 	}
-	segments := []string{}
-	m = m.parent
-	for m.parent != nil {
-		segments = append(segments, m.name)
-		m = m.parent
-	}
-
-	slices.Reverse(segments)
-	return filepath.Join(segments...)
+	slices.Reverse(result)
+	return result
 }

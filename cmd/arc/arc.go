@@ -17,6 +17,7 @@ func main() {
 	var fs fs.FS
 	if len(os.Args) > 1 && (os.Args[1] == "-sim" || os.Args[1] == "-sim2") {
 		fs = mockfs.NewFS(os.Args[1] == "-sim")
+		paths = []string{"origin", "copy 1", "copy 2"}
 	} else {
 		paths = make([]string, len(os.Args)-1)
 		for i, path := range os.Args[1:] {

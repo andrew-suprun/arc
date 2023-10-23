@@ -6,8 +6,12 @@ import (
 	"strings"
 )
 
-func (app *appState) sort() {
-	folder := app.curArchive.curFolder
+func (folder *folder) sort() {
+	if folder.sorted {
+		return
+	}
+	folder.sorted = true
+
 	entries := folder.children
 	switch folder.sortColumn {
 	case sortByName:

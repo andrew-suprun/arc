@@ -25,7 +25,6 @@ func (app *appState) handleUiEvent(event tcell.Event) {
 	case *tcell.EventResize:
 		app.sync = true
 		app.screenWidth, app.screenHeight = event.Size()
-		app.render()
 	}
 }
 
@@ -74,14 +73,14 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		archive := app.curArchive
 		folder := archive.curFolder
 		name := folder.children[folder.selectedIdx].name
-		path := filepath.Join(archive.rootPath, folder.fullPath(), name)
+		path := filepath.Join(archive.rootPath, filepath.Join(folder.fullPath()...), name)
 		exec.Command("open", "-R", path).Start()
 
 	case "Enter":
 		archive := app.curArchive
 		folder := archive.curFolder
 		name := folder.children[folder.selectedIdx].name
-		path := filepath.Join(archive.rootPath, folder.fullPath(), name)
+		path := filepath.Join(archive.rootPath, filepath.Join(folder.fullPath()...), name)
 		exec.Command("open", path).Start()
 
 	case "Ctrl+C":

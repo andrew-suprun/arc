@@ -16,13 +16,15 @@ func Run(roots []string, fsys fs.FS) {
 	go runUi(screen, uiEvents)
 
 	for i, root := range roots {
-		arc := &archive{
-			rootPath: root,
-			rootFolder: &file{
-				folder: &folder{
-					sortAscending: []bool{true, true, true},
-				},
+		rootFolder := &file{
+			folder: &folder{
+				sortAscending: []bool{true, true, true},
 			},
+		}
+		arc := &archive{
+			rootPath:   root,
+			rootFolder: rootFolder,
+			curFolder:  rootFolder,
 		}
 		app.archives = append(app.archives, arc)
 		if i == 0 {
@@ -53,6 +55,6 @@ func Run(roots []string, fsys fs.FS) {
 		if app.quit {
 			break
 		}
-		app.render()
+		app.render(screen)
 	}
 }
