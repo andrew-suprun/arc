@@ -75,23 +75,24 @@ func (fs *fsys) Delete(path string) {
 	fs.commands.Push(delete{path: path})
 }
 
-func (fs *fsys) Quit() {
-	fs.quit.Store(true)
+func (f *fsys) Quit() {
+	f.quit.Store(true)
+	f.events <- fs.Quit{}
 }
 
-func (fs *fsys) run() {
-	for !fs.quit.Load() {
-		commands, _ := fs.commands.Pull()
+func (f *fsys) run() {
+	for !f.quit.Load() {
+		commands, _ := f.commands.Pull()
 		for _, command := range commands {
 			switch cmd := command.(type) {
 			case scan:
-				fs.scanArchive(cmd)
+				f.scanArchive(cmd)
 			case copy:
-				fs.copyFile(cmd)
+				f.copyFile(cmd)
 			case rename:
-				fs.renameFile(cmd)
+				f.renameFile(cmd)
 			case delete:
-				fs.deleteFile(cmd)
+				f.deleteFile(cmd)
 			}
 		}
 	}

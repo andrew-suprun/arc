@@ -12,8 +12,12 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		for _, meta := range event {
 			app.addFileMeta(meta)
 		}
+
 	case fs.FileMeta:
 		app.addFileMeta(event)
+
+	case fs.Quit:
+		app.quit = true
 	}
 }
 
