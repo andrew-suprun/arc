@@ -3,9 +3,9 @@ package app
 import (
 	"arc/log"
 	"path/filepath"
+	"time"
 
 	"os/exec"
-	"slices"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -74,14 +74,14 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		archive := app.curArchive
 		folder := archive.curFolder
 		name := folder.children[folder.selectedIdx].name
-		path := filepath.Join(archive.rootPath, folder.path(), name)
+		path := filepath.Join(archive.rootPath, folder.fullPath(), name)
 		exec.Command("open", "-R", path).Start()
 
 	case "Enter":
 		archive := app.curArchive
 		folder := archive.curFolder
 		name := folder.children[folder.selectedIdx].name
-		path := filepath.Join(archive.rootPath, folder.path(), name)
+		path := filepath.Join(archive.rootPath, folder.fullPath(), name)
 		exec.Command("open", path).Start()
 
 	case "Ctrl+C":
@@ -116,67 +116,52 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 }
 
 func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
-	// x, y := event.Position()
-	// if event.Buttons() == 256 || event.Buttons() == 512 {
-	// 	if y >= 3 && y < app.screenHeight-1 {
-	// 		folder := app.curArchive.curFolder
-	// 		if event.Buttons() == 512 {
-	// 			folder.offsetIdx++
-	// 		} else {
-	// 			folder.offsetIdx--
-	// 		}
-	// 	}
-	// 	return
-	// }
-
-	// if y == 1 {
-	// 	for _, target := range app.folderTargets {
-	// 		if target.offset <= x && target.offset+target.width > x {
-	// 			app.send("set-current-folder", "root", app.root, "path", target.param)
-	// 			return
-	// 		}
-	// 	}
-	// } else if y == 2 {
-	// 	for i, target := range app.sortTargets {
-	// 		if target.offset <= x && x < target.offset+target.width {
-	// 			folder := app.curArchive.curFolder
-	// 			if folder.sortColumn == target.sortColumn {
-	// 				folder.sortAscending[i] = !folder.sortAscending[i]
-	// 			} else {
-	// 				folder.sortColumn = target.sortColumn
-	// 			}
-	// 			app.sort()
-	// 		}
-	// 	}
-	// } else if y >= 3 && y < app.screenSize.height-1 {
-	// 	folder := app.curArchive.curFolder
-	// 	curSelectedIdx := folder.selectedIdx
-	// 	idx := folder.offsetIdx + y - 3
-	// 	if idx < len(app.entries) {
-	// 		folder.selectedIdx = folder.offsetIdx + y - 3
-	// 	}
-	// 	if curSelectedIdx == folder.selectedIdx && time.Since(app.lastClickTime).Milliseconds() < 500 {
-	// 		entry := app.curEntry()
-	// 		if entry.kind == kindFolder {
-	// 			path := filepath.Join(app.curPath(), entry.name)
-	// 			app.send("set-current-folder", "root", app.root, "path", path)
-	// 		}
-	// 	}
-	// 	app.lastClickTime = time.Now()
-	// }
-}
-
-func (m *file) path() string {
-	if m.parent == nil {
-		return ""
-	}
-	segments := []string{}
-	m = m.parent
-	for m.parent != nil {
-		segments = append(segments, m.name)
-		m = m.parent
+	x, y := event.Position()
+	if event.Buttons() == 256 || event.Buttons() == 512 {
+		if y >= 3 && y < app.screenHeight-1 {
+			folder := app.curArchive.curFolder
+			if event.Buttons() == 512 {
+				folder.offsetIdx++
+			} else {
+				folder.offsetIdx--
+			}
+		}
+		return
 	}
 
-	slices.Reverse(segments)
-	return filepath.Join(segments...)
+	if y == 1 {
+		for _, target := range app.folderTargets {
+			if target.offset <= x && target.offset+target.width > x {
+				app.curArchive.curFolder = app.getFolder(target.path)
+				return
+			}
+		}
+	} else if y == 2 {
+		for i, target := range app.sortTargets {
+			if target.offset <= x && x < target.offset+target.width {
+				folder := app.curArchive.curFolder
+				if folder.sortColumn == target.sortColumn {
+					folder.sortAscending[i] = !folder.sortAscending[i]
+				} else {
+					folder.sortColumn = target.sortColumn
+				}
+				folder.sorted = false
+			}
+		}
+	} else if y >= 3 && y < app.screenHeight-1 {
+		folder := app.curArchive.curFolder
+		curSelectedIdx := folder.selectedIdx
+		idx := folder.offsetIdx + y - 3
+		if idx < len(folder.children) {
+			folder.selectedIdx = folder.offsetIdx + y - 3
+		}
+		if curSelectedIdx == folder.selectedIdx && time.Since(app.lastClickTime).Milliseconds() < 500 {
+			entry := folder.children[curSelectedIdx]
+			if entry.children != nil {
+				path := append(entry.path(), entry.name)
+				app.curArchive.curFolder = app.getFolder(path)
+			}
+		}
+		app.lastClickTime = time.Now()
+	}
 }

@@ -2,6 +2,9 @@ package app
 
 import (
 	"arc/fs"
+	"arc/log"
+	"path/filepath"
+	"slices"
 	"time"
 )
 
@@ -11,8 +14,11 @@ type (
 		archives   []*archive
 		curArchive *archive
 
-		screenWidth  int
-		screenHeight int
+		screenWidth   int
+		screenHeight  int
+		folderTargets []folderTarget
+		sortTargets   []sortTarget
+		lastClickTime time.Time
 
 		makeSelectedVisible bool
 		sync                bool
@@ -49,6 +55,18 @@ type (
 
 	fileState  int
 	sortColumn int
+
+	folderTarget struct {
+		path   []string
+		offset int
+		width  int
+	}
+
+	sortTarget struct {
+		sortColumn
+		offset int
+		width  int
+	}
 )
 
 const (
@@ -90,4 +108,45 @@ func (parent *file) getSub(sub string) *file {
 	parent.children = append(parent.children, child)
 	parent.sorted = false
 	return child
+}
+
+func (app *appState) getFolder(path []string) *file {
+	folder := app.curArchive.rootFolder
+	for _, sub := range path {
+		folder.children.getFile(sub)
+	}
+	return folder
+}
+
+func (f files) getFile(name string) *file {
+	for _, file := range f {
+		if file.name == name {
+			return file
+		}
+	}
+	log.Panic("File does not exists", "name", name)
+	return nil
+}
+
+func (f *file) path() (result []string) {
+	for f.parent != nil {
+		result = append(result, f.parent.name)
+	}
+	slices.Reverse(result)
+	return result
+}
+
+func (m *file) fullPath() string {
+	if m.parent == nil {
+		return ""
+	}
+	segments := []string{}
+	m = m.parent
+	for m.parent != nil {
+		segments = append(segments, m.name)
+		m = m.parent
+	}
+
+	slices.Reverse(segments)
+	return filepath.Join(segments...)
 }

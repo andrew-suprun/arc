@@ -101,6 +101,11 @@ func printValue(buf *bytes.Buffer, value any) {
 	}
 }
 
+func Panic(msg string, params ...any) {
+	Debug(msg, params...)
+	panic(msg)
+}
+
 func storeState(lState *logState) {
 	state <- lState
 }
