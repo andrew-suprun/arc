@@ -18,6 +18,9 @@ func initUi() tcell.Screen {
 		log.Debug("ERROR", err)
 		panic(err)
 	}
+
+	screen.EnableMouse()
+
 	return screen
 }
 func deinitUi(screen tcell.Screen) {
@@ -27,7 +30,6 @@ func deinitUi(screen tcell.Screen) {
 		log.Debug("STACK", "stack", debug.Stack())
 	}
 
-	screen.EnableMouse()
 }
 
 func runUi(screen tcell.Screen, events chan tcell.Event) {
