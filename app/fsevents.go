@@ -3,6 +3,7 @@ package app
 import (
 	"arc/fs"
 	"arc/log"
+	"fmt"
 	"strings"
 )
 
@@ -18,11 +19,12 @@ func (app *appState) handleFsEvent(event fs.Event) {
 
 	case fs.Quit:
 		app.quit = true
+	default:
+		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
 	}
 }
 
 func (app *appState) addFileMeta(meta fs.FileMeta) {
-	log.Debug("app", "addFile", meta)
 	archive := app.archive(meta.Root)
 	path, name := parseName(meta.Path)
 	incoming := &file{

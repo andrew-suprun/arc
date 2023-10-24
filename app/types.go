@@ -103,6 +103,9 @@ func (parent *file) getSub(sub string) *file {
 		name:   sub,
 		state:  resolved,
 		parent: parent,
+		folder: &folder{
+			sortAscending: []bool{true, true, true},
+		},
 	}
 	parent.children = append(parent.children, child)
 	parent.sorted = false
