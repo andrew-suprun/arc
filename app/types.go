@@ -133,6 +133,7 @@ func (f files) getFile(name string) *file {
 func (f *file) path() (result []string) {
 	for f.parent != nil {
 		result = append(result, f.parent.name)
+		f = f.parent
 	}
 	slices.Reverse(result)
 	return result
@@ -142,6 +143,7 @@ func (f *file) fullPath() (result []string) {
 	result = append(result, f.name)
 	for f.parent != nil {
 		result = append(result, f.parent.name)
+		f = f.parent
 	}
 	slices.Reverse(result)
 	return result

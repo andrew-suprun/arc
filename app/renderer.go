@@ -1,7 +1,6 @@
 package app
 
 import (
-	"arc/log"
 	"fmt"
 
 	"github.com/gdamore/tcell/v2"
@@ -19,7 +18,6 @@ var (
 
 func (app *appState) render(screen tcell.Screen) {
 	archive := app.curArchive
-	log.Debug("render", "archive", archive)
 	folder := archive.curFolder
 	folder.sort()
 
