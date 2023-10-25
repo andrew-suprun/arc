@@ -131,7 +131,7 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 	if y == 1 {
 		for _, target := range app.folderTargets {
 			if target.offset <= x && target.offset+target.width > x {
-				app.curArchive.curFolder = app.getFolder(target.path)
+				app.curArchive.curFolder = app.curArchive.getFolder(target.path)
 				return
 			}
 		}
@@ -158,7 +158,7 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 			entry := folder.children[curSelectedIdx]
 			if entry.children != nil {
 				path := append(entry.path(), entry.name)
-				app.curArchive.curFolder = app.getFolder(path)
+				app.curArchive.curFolder = app.curArchive.getFolder(path)
 			}
 		}
 		app.lastClickTime = time.Now()

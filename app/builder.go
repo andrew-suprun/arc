@@ -113,18 +113,18 @@ const modTimeFormat = "  " + time.RFC3339
 
 func (b *builder) state(file *file, style tcell.Style) {
 	switch file.state {
-	case resolved:
+	case scanned, hashed:
 		b.text("", style)
 
-	case hashing, copying:
+	case inProgress:
 		value := float64(file.progress) / float64(file.size)
 		b.progressBar(value, styleProgressBar)
 
 	case pending:
-		b.text(" ", style)
+		b.text(" Pending", style)
 
 	case divergent:
-		b.text("   ", style)
+		b.text(" ---", style)
 		// b.text(file.counts, style) // TODO
 	}
 }

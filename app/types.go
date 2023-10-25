@@ -69,11 +69,10 @@ type (
 )
 
 const (
-	resolved fileState = iota
-	hashing
+	scanned fileState = iota
+	inProgress
 	hashed
 	pending
-	copying
 	copied
 	divergent
 )
@@ -101,7 +100,7 @@ func (parent *file) getSub(sub string) *file {
 	}
 	child := &file{
 		name:   sub,
-		state:  resolved,
+		state:  scanned,
 		parent: parent,
 		folder: &folder{
 			sortAscending: []bool{true, true, true},
@@ -112,10 +111,10 @@ func (parent *file) getSub(sub string) *file {
 	return child
 }
 
-func (app *appState) getFolder(path []string) *file {
-	folder := app.curArchive.rootFolder
+func (arc *archive) getFolder(path []string) *file {
+	folder := arc.rootFolder
 	for _, sub := range path {
-		folder.children.getFile(sub)
+		folder = folder.children.getFile(sub)
 	}
 	return folder
 }
@@ -135,6 +134,7 @@ func (f *file) path() (result []string) {
 		result = append(result, f.parent.name)
 		f = f.parent
 	}
+	result = result[:len(result)-1]
 	slices.Reverse(result)
 	return result
 }
@@ -145,6 +145,7 @@ func (f *file) fullPath() (result []string) {
 		result = append(result, f.parent.name)
 		f = f.parent
 	}
+	result = result[:len(result)-1]
 	slices.Reverse(result)
 	return result
 }

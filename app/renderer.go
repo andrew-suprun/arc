@@ -165,9 +165,9 @@ func (app *appState) folderView(b *builder) {
 func fileStyle(file *file) tcell.Style {
 	fg := 231
 	switch file.state {
-	case resolved:
+	case scanned:
 		fg = 248
-	case hashing, copying:
+	case inProgress:
 		fg = 195
 	case pending:
 		fg = 214

@@ -14,8 +14,18 @@ func (app *appState) handleFsEvent(event fs.Event) {
 			app.addFileMeta(meta)
 		}
 
-	case fs.FileMeta:
-		app.addFileMeta(event)
+	case fs.FileHashed:
+		path, name := parseName(event.Path)
+		file := app.archive(event.Root).getFolder(path).children.getFile(name)
+		file.hash = event.Hash
+		file.state = hashed
+
+	case fs.Progress:
+		path, name := parseName(event.Path)
+		folder := app.archive(event.Root).getFolder(path)
+		file := folder.children.getFile(name)
+		file.progress = event.Progress
+		file.state = inProgress
 
 	case fs.Quit:
 		app.quit = true
@@ -32,7 +42,7 @@ func (app *appState) addFileMeta(meta fs.FileMeta) {
 		size:    meta.Size,
 		modTime: meta.ModTime,
 		hash:    meta.Hash,
-		state:   resolved,
+		state:   scanned,
 	}
 	folder := archive.rootFolder
 	for _, sub := range path {
@@ -44,6 +54,9 @@ func (app *appState) addFileMeta(meta fs.FileMeta) {
 }
 
 func parsePath(strPath string) []string {
+	if strPath == "" {
+		return nil
+	}
 	return strings.Split(string(strPath), "/")
 }
 

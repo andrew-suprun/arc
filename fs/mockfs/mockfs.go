@@ -116,7 +116,11 @@ func (f *fsys) scanArchive(scan scan) {
 					Progress: progress,
 				}
 			}
-			f.events <- file
+			f.events <- fs.FileHashed{
+				Root: scan.root,
+				Path: file.Path,
+				Hash: file.Hash,
+			}
 		}
 	}
 
