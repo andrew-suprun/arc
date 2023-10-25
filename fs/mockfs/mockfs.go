@@ -115,6 +115,7 @@ func (f *fsys) scanArchive(scan scan) {
 					Path:     file.Path,
 					Progress: progress,
 				}
+				time.Sleep(100 * time.Microsecond)
 			}
 			f.events <- fs.FileHashed{
 				Root: scan.root,

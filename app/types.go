@@ -131,10 +131,12 @@ func (f files) getFile(name string) *file {
 
 func (f *file) path() (result []string) {
 	for f.parent != nil {
-		result = append(result, f.parent.name)
 		f = f.parent
+		if f.name == "" {
+			break
+		}
+		result = append(result, f.name)
 	}
-	result = result[:len(result)-1]
 	slices.Reverse(result)
 	return result
 }
@@ -142,10 +144,35 @@ func (f *file) path() (result []string) {
 func (f *file) fullPath() (result []string) {
 	result = append(result, f.name)
 	for f.parent != nil {
-		result = append(result, f.parent.name)
 		f = f.parent
+		if f.name == "" {
+			break
+		}
+		result = append(result, f.name)
 	}
-	result = result[:len(result)-1]
 	slices.Reverse(result)
 	return result
+}
+
+func (folder *file) updateMetas() {
+	folder.size = 0
+	folder.modTime = time.Time{}
+	folder.state = scanned
+	folder.progress = 0
+
+	for _, child := range folder.children {
+		if child.folder != nil {
+			child.updateMetas()
+		}
+		folder.updateMeta(child)
+	}
+}
+
+func (folder *file) updateMeta(meta *file) {
+	folder.progress += meta.progress
+	folder.size += meta.size
+	if folder.modTime.Before(meta.modTime) {
+		folder.modTime = meta.modTime
+	}
+	folder.state = max(folder.state, meta.state)
 }

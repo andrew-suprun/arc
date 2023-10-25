@@ -20,6 +20,7 @@ func (app *appState) render(screen tcell.Screen) {
 	archive := app.curArchive
 	folder := archive.curFolder
 	folder.sort()
+	folder.updateMetas()
 
 	b := &builder{width: app.screenWidth, height: app.screenHeight, screen: screen, sync: app.sync}
 	app.sync = false

@@ -112,13 +112,14 @@ func (b *builder) text(text string, style tcell.Style) {
 const modTimeFormat = "  " + time.RFC3339
 
 func (b *builder) state(file *file, style tcell.Style) {
+	if file.progress > 0 && file.progress < file.size {
+		value := float64(file.progress) / float64(file.size)
+		b.progressBar(value, styleProgressBar)
+		return
+	}
 	switch file.state {
 	case scanned, hashed:
 		b.text("", style)
-
-	case inProgress:
-		value := float64(file.progress) / float64(file.size)
-		b.progressBar(value, styleProgressBar)
 
 	case pending:
 		b.text(" Pending", style)
@@ -174,8 +175,7 @@ func (b *builder) progressBar(value float64, style tcell.Style) {
 	for ; idx < int(width); idx++ {
 		runes[idx] = ' '
 	}
-	runes = trim(runes, width)
-	for i, ch := range trim(runes, width) {
+	for i, ch := range runes {
 		b.screen.SetContent(b.x+i, b.y, ch, nil, style)
 	}
 	b.field++

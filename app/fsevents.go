@@ -18,6 +18,7 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		path, name := parseName(event.Path)
 		file := app.archive(event.Root).getFolder(path).children.getFile(name)
 		file.hash = event.Hash
+		file.progress = file.size
 		file.state = hashed
 
 	case fs.Progress:
