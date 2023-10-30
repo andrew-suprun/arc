@@ -122,13 +122,13 @@ func (parent *file) getSub(sub string) *file {
 func (arc *archive) getFolder(path []string) *file {
 	folder := arc.rootFolder
 	for _, sub := range path {
-		folder = folder.children.getFile(sub)
+		folder = folder.getChild(sub)
 	}
 	return folder
 }
 
-func (f files) getFile(name string) *file {
-	for _, file := range f {
+func (f *file) getChild(name string) *file {
+	for _, file := range f.children {
 		if file.name == name {
 			return file
 		}

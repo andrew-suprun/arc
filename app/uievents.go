@@ -93,7 +93,7 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		// TODO Resole All
 
 	case "Tab":
-		// TODO Tab
+		(&tabState{app: app}).tab()
 
 	case "Backspace2": // Ctrl+Delete
 		// TODO Delete
@@ -162,5 +162,61 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 			}
 		}
 		app.lastClickTime = time.Now()
+	}
+}
+
+type tabState struct {
+	app           *appState
+	curArchive    *archive
+	curFile       *file
+	firstArchive  *archive
+	firstFolder   *file
+	firstFileIdx  int
+	foundSameFile bool
+	done          bool
+}
+
+func (ts *tabState) tab() {
+	folder := ts.app.curArchive.curFolder
+	ts.curFile = folder.children[folder.selectedIdx]
+	if ts.curFile.folder != nil {
+		return
+	}
+	for _, ts.curArchive = range ts.app.archives {
+		ts.walkFiles(ts.curArchive.rootFolder)
+	}
+	if !ts.done {
+		ts.app.curArchive = ts.firstArchive
+		ts.curArchive.curFolder = ts.firstFolder
+		folder.selectedIdx = ts.firstFileIdx
+		ts.app.makeSelectedVisible = true
+	}
+}
+
+func (ts *tabState) walkFiles(folder *file) {
+	for idx, child := range folder.children {
+		if ts.done {
+			return
+		}
+		if child.folder != nil {
+			ts.walkFiles(child)
+		} else if ts.curFile.hash == child.hash {
+			if ts.foundSameFile {
+				ts.app.curArchive = ts.curArchive
+				ts.curArchive.curFolder = folder
+				folder.selectedIdx = idx
+				ts.app.makeSelectedVisible = true
+				ts.done = true
+				return
+			}
+			if ts.firstArchive == nil {
+				ts.firstArchive = ts.curArchive
+				ts.firstFolder = folder
+				ts.firstFileIdx = idx
+			}
+			if child == ts.curFile {
+				ts.foundSameFile = true
+			}
+		}
 	}
 }
