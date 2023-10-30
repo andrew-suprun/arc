@@ -100,12 +100,12 @@ func (f *fsys) run() {
 
 func (f *fsys) scanArchive(scan scan) {
 	f.events <- archives[scan.root]
-	if f.scan {
-		for _, file := range archives[scan.root] {
-			if f.quit.Load() {
-				return
-			}
+	for _, file := range archives[scan.root] {
+		if f.quit.Load() {
+			return
+		}
 
+		if f.scan {
 			for progress := 0; progress < file.Size; progress += 10000000 {
 				if f.quit.Load() {
 					return
@@ -117,11 +117,11 @@ func (f *fsys) scanArchive(scan scan) {
 				}
 				time.Sleep(100 * time.Microsecond)
 			}
-			f.events <- fs.FileHashed{
-				Root: scan.root,
-				Path: file.Path,
-				Hash: file.Hash,
-			}
+		}
+		f.events <- fs.FileHashed{
+			Root: scan.root,
+			Path: file.Path,
+			Hash: file.Hash,
 		}
 	}
 
@@ -152,6 +152,23 @@ func init() {
 	for i := range c1 {
 		c2[i].Root = "copy 2"
 	}
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "aaa/bbb/ccc",
+		Size:    123,
+		ModTime: time.Now(),
+		Hash:    "111",
+	})
+
+	c1 = append(c1, fs.FileMeta{
+		Root:    "copy 1",
+		Path:    "aaa/bbb",
+		Size:    234,
+		ModTime: time.Now(),
+		Hash:    "222",
+	})
+
 	archives = map[string]fs.FileMetas{
 		"origin": or,
 		"copy 1": c1,

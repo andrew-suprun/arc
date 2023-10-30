@@ -25,9 +25,10 @@ type (
 	}
 
 	archive struct {
-		rootPath   string
-		rootFolder *file
-		curFolder  *file
+		rootPath     string
+		rootFolder   *file
+		curFolder    *file
+		archiveState archiveState
 	}
 
 	file struct {
@@ -38,6 +39,7 @@ type (
 		progress int
 		state    fileState
 		parent   *file
+		counts   string
 		*folder
 	}
 
@@ -52,8 +54,9 @@ type (
 		sorted        bool
 	}
 
-	fileState  int
-	sortColumn int
+	archiveState int
+	fileState    int
+	sortColumn   int
 
 	folderTarget struct {
 		path   []string
@@ -66,6 +69,11 @@ type (
 		offset int
 		width  int
 	}
+)
+
+const (
+	archiveScanned archiveState = iota
+	archiveHashed
 )
 
 const (

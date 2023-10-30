@@ -125,8 +125,7 @@ func (b *builder) state(file *file, style tcell.Style) {
 		b.text(" Pending", style)
 
 	case divergent:
-		b.text(" ---", style)
-		// b.text(file.counts, style) // TODO
+		b.text(" "+file.counts, style)
 	}
 }
 
