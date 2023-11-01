@@ -2,6 +2,7 @@ package mockfs
 
 import (
 	"arc/fs"
+	"arc/log"
 	"arc/stream"
 	"cmp"
 	"encoding/csv"
@@ -129,12 +130,15 @@ func (f *fsys) scanArchive(scan scan) {
 }
 
 func (fs *fsys) copyFile(copy copy) {
+	log.Debug("copy", "path", copy.path, "from", copy.fromRoot, "to", copy.toRoots)
 }
 
 func (fs *fsys) renameFile(rename rename) {
+	log.Debug("rename", "root", rename.root, "source", rename.sourcePath, "target", rename.targetPath)
 }
 
 func (fs *fsys) deleteFile(delete delete) {
+	log.Debug("delete", "path", delete.path)
 }
 
 var archives = map[string]fs.FileMetas{}
@@ -161,12 +165,36 @@ func init() {
 		Hash:    "111",
 	})
 
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "bbb/ccc",
+		Size:    123,
+		ModTime: time.Now(),
+		Hash:    "111",
+	})
+
 	c1 = append(c1, fs.FileMeta{
 		Root:    "copy 1",
 		Path:    "aaa/bbb",
 		Size:    234,
 		ModTime: time.Now(),
 		Hash:    "222",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Root:    "copy 2",
+		Path:    "ddd/eee",
+		Size:    123,
+		ModTime: time.Now(),
+		Hash:    "111",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Root:    "copy 2",
+		Path:    "ddd/fff",
+		Size:    333,
+		ModTime: time.Now(),
+		Hash:    "333",
 	})
 
 	archives = map[string]fs.FileMetas{

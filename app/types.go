@@ -39,7 +39,7 @@ type (
 		progress int
 		state    fileState
 		parent   *file
-		counts   string
+		counts   []int
 		*folder
 	}
 
@@ -98,6 +98,15 @@ func (app *appState) archive(root string) *archive {
 		}
 	}
 	return nil
+}
+
+func (app *appState) curArciveIdx() int {
+	for i := range app.archives {
+		if app.curArchive == app.archives[i] {
+			return i
+		}
+	}
+	panic("Invalid current archive")
 }
 
 func (parent *file) getSub(sub string) *file {
@@ -183,4 +192,18 @@ func (folder *file) updateMeta(meta *file) {
 		folder.modTime = meta.modTime
 	}
 	folder.state = max(folder.state, meta.state)
+}
+
+func (folder *file) walk(handle func(int, *file) bool) (result bool) {
+	for idx, child := range folder.children {
+		if child.folder != nil {
+			result = child.walk(handle)
+		} else {
+			result = handle(idx, child)
+		}
+		if !result {
+			break
+		}
+	}
+	return result
 }

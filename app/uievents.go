@@ -3,6 +3,7 @@ package app
 import (
 	"arc/log"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"os/exec"
@@ -87,10 +88,14 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		app.fs.Quit()
 
 	case "Ctrl+R":
-		// TODO Resole
+		folder := app.curArchive.curFolder
+		app.resolve(app.curArciveIdx(), folder.children[folder.selectedIdx], true)
 
 	case "Ctrl+A":
-		// TODO Resole All
+		folder := app.curArchive.curFolder
+		for _, child := range folder.children {
+			app.resolve(app.curArciveIdx(), child, false)
+		}
 
 	case "Tab":
 		(&tabState{app: app}).tab()
@@ -183,7 +188,7 @@ func (ts *tabState) tab() {
 		return
 	}
 	for _, ts.curArchive = range ts.app.archives {
-		ts.walkFiles(ts.curArchive.rootFolder)
+		ts.curArchive.rootFolder.walk(ts.handle)
 	}
 	if !ts.done {
 		ts.app.curArchive = ts.firstArchive
@@ -193,29 +198,82 @@ func (ts *tabState) tab() {
 	}
 }
 
-func (ts *tabState) walkFiles(folder *file) {
-	for idx, child := range folder.children {
-		if ts.done {
-			return
+func (ts *tabState) handle(idx int, f *file) bool {
+	if ts.curFile.hash == f.hash {
+		if ts.foundSameFile {
+			ts.app.curArchive = ts.curArchive
+			ts.curArchive.curFolder = f
+			f.selectedIdx = idx
+			ts.app.makeSelectedVisible = true
+			return false
 		}
-		if child.folder != nil {
-			ts.walkFiles(child)
-		} else if ts.curFile.hash == child.hash {
-			if ts.foundSameFile {
-				ts.app.curArchive = ts.curArchive
-				ts.curArchive.curFolder = folder
-				folder.selectedIdx = idx
-				ts.app.makeSelectedVisible = true
-				ts.done = true
-				return
+		if ts.firstArchive == nil {
+			ts.firstArchive = ts.curArchive
+			ts.firstFolder = f
+			ts.firstFileIdx = idx
+		}
+		if f == ts.curFile {
+			ts.foundSameFile = true
+		}
+	}
+	return true
+}
+
+func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
+	if source.state != divergent {
+		return
+	}
+	if source.folder != nil {
+		for _, child := range source.children {
+			app.resolve(sourceArcIdx, child, false)
+		}
+		return
+	}
+	sameHash := make([][]*file, len(app.archives))
+	for arcIdx, archive := range app.archives {
+		archive.rootFolder.walk(func(_ int, child *file) bool {
+			if child.hash == source.hash {
+				sameHash[arcIdx] = append(sameHash[arcIdx], child)
 			}
-			if ts.firstArchive == nil {
-				ts.firstArchive = ts.curArchive
-				ts.firstFolder = folder
-				ts.firstFileIdx = idx
+			return true
+		})
+	}
+
+	if !explicit && len(sameHash[sourceArcIdx]) > 1 {
+		return
+	}
+
+	// copy missing
+	roots := []string{}
+	for arcIdx, archive := range app.archives {
+		if len(sameHash[arcIdx]) == 0 {
+			roots = append(roots, archive.rootPath)
+		}
+	}
+	if len(roots) > 0 {
+		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
+	}
+
+	// rename/delete as necessary
+	for arcIdx, files := range sameHash {
+		archive := app.archives[arcIdx]
+		if len(files) == 0 {
+			continue
+		}
+		keep := files[0]
+		for _, file := range files {
+			if slices.Equal(file.fullPath(), source.fullPath()) {
+				keep = source
+				break
 			}
-			if child == ts.curFile {
-				ts.foundSameFile = true
+		}
+		for _, file := range files {
+			if file == keep {
+				if !slices.Equal(file.fullPath(), source.fullPath()) {
+					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
+				}
+			} else {
+				app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
 			}
 		}
 	}

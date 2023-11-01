@@ -112,11 +112,14 @@ func analyzeDiscrepancy(hash string, files [][]*file) {
 	}
 
 	if discrepancy {
-		nFiles := counts(files)
+		counts := make([]int, len(files))
+		for i := range files {
+			counts[i] = len(files[i])
+		}
 		for _, arc := range files {
 			for _, file := range arc {
 				file.state = divergent
-				file.counts = nFiles
+				file.counts = counts
 			}
 		}
 	}
@@ -133,26 +136,4 @@ func parseName(strPath string) ([]string, string) {
 	path := parsePath(strPath)
 	base := path[len(path)-1]
 	return path[:len(path)-1], base
-}
-
-func counts[T any](entities [][]T) string {
-	if entities == nil {
-		return ""
-	}
-
-	buf := &strings.Builder{}
-	for _, count := range entities {
-		fmt.Fprintf(buf, "%c", countRune(len(count)))
-	}
-	return buf.String()
-}
-
-func countRune(count int) rune {
-	if count == 0 {
-		return '-'
-	}
-	if count > 9 {
-		return '*'
-	}
-	return '0' + rune(count)
 }

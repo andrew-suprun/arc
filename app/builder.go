@@ -125,8 +125,27 @@ func (b *builder) state(file *file, style tcell.Style) {
 		b.text(" Pending", style)
 
 	case divergent:
-		b.text(" "+file.counts, style)
+		b.text(fileCounts(file), style)
 	}
+}
+
+func fileCounts(file *file) string {
+	buf := &strings.Builder{}
+	buf.WriteRune(' ')
+	for _, count := range file.counts {
+		fmt.Fprintf(buf, "%c", countRune(count))
+	}
+	return buf.String()
+}
+
+func countRune(count int) rune {
+	if count == 0 {
+		return '-'
+	}
+	if count > 9 {
+		return '*'
+	}
+	return '0' + rune(count)
 }
 
 func formatSize(size int) string {
