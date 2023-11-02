@@ -2,8 +2,10 @@ package app
 
 import (
 	"arc/log"
+	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"os/exec"
@@ -221,7 +223,7 @@ func (ts *tabState) handle(idx int, f *file) bool {
 }
 
 func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
-	log.Debug("resolve", "arcIdx", sourceArcIdx, "source", []byte(source.String()), "explicit", explicit)
+	log.Debug("resolve", "arcIdx", sourceArcIdx, "source", source, "explicit", explicit)
 	if source.state != divergent {
 		return
 	}
@@ -256,6 +258,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
 		for _, newRoot := range roots {
 			archive := app.archive(newRoot)
+			app.clearPath(archive, source.path())
 			folder := archive.getFolder(source.path())
 			folder.children = append(folder.children, source)
 			folder.sorted = false
@@ -279,6 +282,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		for _, file := range files {
 			if file == keep {
 				if !slices.Equal(file.fullPath(), source.fullPath()) {
+					app.clearPath(archive, source.path())
 					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
 					archive.deleteFile(file)
 					folder := archive.getFolder(source.path())
@@ -295,7 +299,6 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 }
 
 func (app *appState) delete(sourceArcIdx int, source *file) {
-	log.Debug("delete", "arcIdx", sourceArcIdx, "file", source)
 	if source.state != divergent && source.folder != nil {
 		return
 	}
@@ -321,4 +324,80 @@ func (app *appState) delete(sourceArcIdx int, source *file) {
 			archive.deleteFile(file)
 		}
 	}
+}
+
+func (app *appState) clearPath(archive *archive, path []string) {
+	folder := archive.rootFolder
+	for _, name := range path {
+		child := folder.getChild(name)
+		if child == nil {
+			return
+		}
+		if child != nil && child.folder == nil {
+			newName := folder.uniqueName(child.name)
+			newPath := slices.Clone(child.path())
+			newPath[len(newPath)-1] = newName
+			app.fs.Rename(archive.rootPath, filepath.Join(child.fullPath()...), filepath.Join(newPath...))
+			child.name = newName
+			folder.sorted = false
+			return
+		}
+		folder = child
+	}
+}
+
+func (folder *folder) uniqueName(name string) string {
+loop:
+	for i := 1; ; i++ {
+		name = newSuffix(name, i)
+		for _, child := range folder.children {
+			if child.name == name {
+				continue loop
+			}
+		}
+		break
+	}
+	return name
+}
+
+func newSuffix(name string, idx int) string {
+	parts := strings.Split(name, ".")
+
+	var part string
+	if len(parts) == 1 {
+		part = stripIdx(parts[0])
+	} else {
+		part = stripIdx(parts[len(parts)-2])
+	}
+	var newName string
+	if len(parts) == 1 {
+		newName = fmt.Sprintf("%s%c%d", part, '`', idx)
+	} else {
+		parts[len(parts)-2] = fmt.Sprintf("%s%c%d", part, '`', idx)
+		newName = strings.Join(parts, ".")
+	}
+	return newName
+}
+
+type stripIdxState int
+
+const (
+	expectDigit stripIdxState = iota
+	expectDigitOrBacktick
+)
+
+func stripIdx(name string) string {
+	state := expectDigit
+	i := len(name) - 1
+	for ; i >= 0; i-- {
+		ch := name[i]
+		if ch >= '0' && ch <= '9' && (state == expectDigit || state == expectDigitOrBacktick) {
+			state = expectDigitOrBacktick
+		} else if ch == '`' && state == expectDigitOrBacktick {
+			return name[:i]
+		} else {
+			return name
+		}
+	}
+	return name
 }

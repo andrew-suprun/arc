@@ -75,6 +75,10 @@ func Debug(msg string, params ...any) {
 }
 
 func printValue(buf *bytes.Buffer, value any) {
+	if str, ok := value.(fmt.Stringer); ok {
+		fmt.Fprintf(buf, "%s", str.String())
+		return
+	}
 	switch v := value.(type) {
 	case string:
 		fmt.Fprintf(buf, "%q", v)
@@ -93,11 +97,7 @@ func printValue(buf *bytes.Buffer, value any) {
 		fmt.Fprint(buf, "]")
 
 	default:
-		if str, ok := value.(fmt.Stringer); ok {
-			fmt.Fprintf(buf, "%q", str.String())
-		} else {
-			fmt.Fprintf(buf, "%v", v)
-		}
+		fmt.Fprintf(buf, "%v", v)
 	}
 }
 

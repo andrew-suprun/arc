@@ -2,7 +2,6 @@ package app
 
 import (
 	"arc/fs"
-	"arc/log"
 	"fmt"
 	"slices"
 	"strings"
@@ -180,7 +179,6 @@ func (f *file) getChild(name string) *file {
 			return file
 		}
 	}
-	log.Panic("File does not exists", "folder", f.fullPath(), "name", name)
 	return nil
 }
 
@@ -248,17 +246,10 @@ func (folder *file) walk(handle func(int, *file) bool) (result bool) {
 
 func (arc *archive) deleteFile(file *file) {
 	folder := arc.getFolder(file.path())
-	log.Debug("deleteFile", "folder", folder.fullPath())
 	for childIdx, child := range folder.children {
-		log.Debug("deleteFile", "child", child.fullPath())
 		if child == file {
 			folder.children = slices.Delete(folder.children, childIdx, childIdx+1)
-			log.Debug("deleteFile", "deleted", "childIdx", childIdx)
 			break
 		}
-	}
-
-	for childIdx, child := range folder.children {
-		log.Debug("deleteFile", "idx", childIdx, "deleted", child.fullPath())
 	}
 }
