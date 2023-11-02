@@ -101,7 +101,8 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		(&tabState{app: app}).tab()
 
 	case "Backspace2": // Ctrl+Delete
-		// TODO Delete
+		folder := app.curArchive.curFolder
+		app.delete(app.curArciveIdx(), folder.children[folder.selectedIdx])
 
 	case "F10":
 		// TODO Switch Debug On/Off
@@ -220,6 +221,7 @@ func (ts *tabState) handle(idx int, f *file) bool {
 }
 
 func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
+	log.Debug("resolve", "arcIdx", sourceArcIdx, "source", []byte(source.String()), "explicit", explicit)
 	if source.state != divergent {
 		return
 	}
@@ -252,6 +254,13 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 	}
 	if len(roots) > 0 {
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
+		for _, newRoot := range roots {
+			archive := app.archive(newRoot)
+			folder := archive.getFolder(source.path())
+			folder.children = append(folder.children, source)
+			folder.sorted = false
+			source.state = pending
+		}
 	}
 
 	// rename/delete as necessary
@@ -271,10 +280,45 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 			if file == keep {
 				if !slices.Equal(file.fullPath(), source.fullPath()) {
 					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
+					archive.deleteFile(file)
+					folder := archive.getFolder(source.path())
+					folder.children = append(folder.children, file)
+					folder.sorted = false
+					source.state = pending
 				}
 			} else {
 				app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
+				archive.deleteFile(file)
 			}
+		}
+	}
+}
+
+func (app *appState) delete(sourceArcIdx int, source *file) {
+	log.Debug("delete", "arcIdx", sourceArcIdx, "file", source)
+	if source.state != divergent && source.folder != nil {
+		return
+	}
+
+	sameHash := make([][]*file, len(app.archives))
+	for arcIdx, archive := range app.archives {
+		archive.rootFolder.walk(func(_ int, child *file) bool {
+			if child.hash == source.hash {
+				sameHash[arcIdx] = append(sameHash[arcIdx], child)
+			}
+			return true
+		})
+	}
+
+	if len(sameHash[0]) > 0 {
+		return
+	}
+
+	for arcIdx, files := range sameHash {
+		archive := app.archives[arcIdx]
+		for _, file := range files {
+			app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
+			archive.deleteFile(file)
 		}
 	}
 }

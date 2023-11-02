@@ -3,7 +3,9 @@ package app
 import (
 	"arc/fs"
 	"arc/log"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -109,6 +111,42 @@ func (app *appState) curArciveIdx() int {
 	panic("Invalid current archive")
 }
 
+func (f *file) String() string {
+	buf := &strings.Builder{}
+	if f.folder == nil {
+		buf.WriteString("file")
+	} else {
+		buf.WriteString("folder")
+	}
+	fmt.Fprintf(buf, "{name: %q, path: %v, state: %s, size: %d, modTime: %s", f.name, f.path(), f.state, f.size, f.modTime.Format(time.DateTime))
+	if f.hash != "" {
+		fmt.Fprintf(buf, ", hash: %q", f.hash)
+	}
+	if f.progress > 0 && f.progress < f.size {
+		fmt.Fprintf(buf, ", progress: %d", f.progress)
+	}
+	buf.WriteRune('}')
+	return buf.String()
+}
+
+func (s fileState) String() string {
+	switch s {
+	case scanned:
+		return "scanned"
+	case inProgress:
+		return "inProgress"
+	case hashed:
+		return "hashed"
+	case pending:
+		return "pending"
+	case copied:
+		return "copied"
+	case divergent:
+		return "divergent"
+	}
+	panic("Invalid state")
+}
+
 func (parent *file) getSub(sub string) *file {
 	for _, child := range parent.children {
 		if child.name == sub {
@@ -131,7 +169,7 @@ func (parent *file) getSub(sub string) *file {
 func (arc *archive) getFolder(path []string) *file {
 	folder := arc.rootFolder
 	for _, sub := range path {
-		folder = folder.getChild(sub)
+		folder = folder.getSub(sub)
 	}
 	return folder
 }
@@ -142,7 +180,7 @@ func (f *file) getChild(name string) *file {
 			return file
 		}
 	}
-	log.Panic("File does not exists", "name", name)
+	log.Panic("File does not exists", "folder", f.fullPath(), "name", name)
 	return nil
 }
 
@@ -206,4 +244,21 @@ func (folder *file) walk(handle func(int, *file) bool) (result bool) {
 		}
 	}
 	return result
+}
+
+func (arc *archive) deleteFile(file *file) {
+	folder := arc.getFolder(file.path())
+	log.Debug("deleteFile", "folder", folder.fullPath())
+	for childIdx, child := range folder.children {
+		log.Debug("deleteFile", "child", child.fullPath())
+		if child == file {
+			folder.children = slices.Delete(folder.children, childIdx, childIdx+1)
+			log.Debug("deleteFile", "deleted", "childIdx", childIdx)
+			break
+		}
+	}
+
+	for childIdx, child := range folder.children {
+		log.Debug("deleteFile", "idx", childIdx, "deleted", child.fullPath())
+	}
 }
