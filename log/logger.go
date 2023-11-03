@@ -75,8 +75,12 @@ func Debug(msg string, params ...any) {
 }
 
 func printValue(buf *bytes.Buffer, value any) {
+	if value == nil {
+		buf.WriteString("<nil>")
+		return
+	}
 	if str, ok := value.(fmt.Stringer); ok {
-		fmt.Fprintf(buf, "%s", str.String())
+		buf.WriteString(str.String())
 		return
 	}
 	switch v := value.(type) {

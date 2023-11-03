@@ -255,15 +255,17 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		}
 	}
 	if len(roots) > 0 {
-		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
+		source.state = pending
 		for _, newRoot := range roots {
 			archive := app.archive(newRoot)
-			app.clearPath(archive, source.path())
+			app.clearPath(archive, source.fullPath())
+			clone := source.clone()
 			folder := archive.getFolder(source.path())
-			folder.children = append(folder.children, source)
+			folder.children = append(folder.children, clone)
 			folder.sorted = false
-			source.state = pending
+			clone.parent = folder
 		}
+		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
 	}
 
 	// rename/delete as necessary
@@ -272,6 +274,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		if len(files) == 0 {
 			continue
 		}
+		source.state = pending
 		keep := files[0]
 		for _, file := range files {
 			if slices.Equal(file.fullPath(), source.fullPath()) {
@@ -282,17 +285,18 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		for _, file := range files {
 			if file == keep {
 				if !slices.Equal(file.fullPath(), source.fullPath()) {
-					app.clearPath(archive, source.path())
-					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
+					app.clearPath(archive, source.fullPath())
 					archive.deleteFile(file)
+					clone := file.clone()
 					folder := archive.getFolder(source.path())
-					folder.children = append(folder.children, file)
+					folder.children = append(folder.children, clone)
+					clone.parent = folder
 					folder.sorted = false
-					source.state = pending
+					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
 				}
 			} else {
-				app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
 				archive.deleteFile(file)
+				app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
 			}
 		}
 	}
@@ -320,22 +324,23 @@ func (app *appState) delete(sourceArcIdx int, source *file) {
 	for arcIdx, files := range sameHash {
 		archive := app.archives[arcIdx]
 		for _, file := range files {
-			app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
 			archive.deleteFile(file)
+			app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
 		}
 	}
 }
 
 func (app *appState) clearPath(archive *archive, path []string) {
 	folder := archive.rootFolder
+	var child *file
 	for _, name := range path {
-		child := folder.getChild(name)
+		child = folder.getChild(name)
 		if child == nil {
 			return
 		}
-		if child != nil && child.folder == nil {
+		if child.folder == nil {
 			newName := folder.uniqueName(child.name)
-			newPath := slices.Clone(child.path())
+			newPath := slices.Clone(child.fullPath())
 			newPath[len(newPath)-1] = newName
 			app.fs.Rename(archive.rootPath, filepath.Join(child.fullPath()...), filepath.Join(newPath...))
 			child.name = newName
@@ -343,6 +348,16 @@ func (app *appState) clearPath(archive *archive, path []string) {
 			return
 		}
 		folder = child
+	}
+	if child != nil && child.folder != nil {
+		folder = child.parent
+		newName := folder.uniqueName(child.name)
+		newPath := slices.Clone(child.fullPath())
+		newPath[len(newPath)-1] = newName
+		app.fs.Rename(archive.rootPath, filepath.Join(child.fullPath()...), filepath.Join(newPath...))
+		child.name = newName
+		folder.sorted = false
+		return
 	}
 }
 

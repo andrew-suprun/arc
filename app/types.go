@@ -111,6 +111,9 @@ func (app *appState) curArciveIdx() int {
 }
 
 func (f *file) String() string {
+	if f == nil {
+		return "<nil>"
+	}
 	buf := &strings.Builder{}
 	if f.folder == nil {
 		buf.WriteString("file")
@@ -171,6 +174,18 @@ func (arc *archive) getFolder(path []string) *file {
 		folder = folder.getSub(sub)
 	}
 	return folder
+}
+
+func (f *file) clone() *file {
+	return &file{
+		name:     f.name,
+		size:     f.size,
+		modTime:  f.modTime,
+		hash:     f.hash,
+		progress: f.progress,
+		state:    f.state,
+		counts:   f.counts,
+	}
 }
 
 func (f *file) getChild(name string) *file {
