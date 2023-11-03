@@ -234,6 +234,9 @@ func (folder *file) updateMetas() {
 		}
 		folder.updateMeta(child)
 	}
+	if folder.size == 0 {
+		folder.parent.deleteFile(folder)
+	}
 }
 
 func (folder *file) updateMeta(meta *file) {
@@ -261,6 +264,10 @@ func (folder *file) walk(handle func(int, *file) bool) (result bool) {
 
 func (arc *archive) deleteFile(file *file) {
 	folder := arc.getFolder(file.path())
+	folder.deleteFile(file)
+}
+
+func (folder *folder) deleteFile(file *file) {
 	for childIdx, child := range folder.children {
 		if child == file {
 			folder.children = slices.Delete(folder.children, childIdx, childIdx+1)
