@@ -287,12 +287,12 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 				if !slices.Equal(file.fullPath(), source.fullPath()) {
 					app.clearPath(archive, source.fullPath())
 					archive.deleteFile(file)
-					clone := file.clone()
+					clone := source.clone()
 					folder := archive.getFolder(source.path())
 					folder.children = append(folder.children, clone)
 					clone.parent = folder
 					folder.sorted = false
-					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(source.fullPath()...))
+					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(clone.fullPath()...))
 				}
 			} else {
 				archive.deleteFile(file)
