@@ -248,14 +248,21 @@ func (folder *file) updateMeta(meta *file) {
 	folder.state = max(folder.state, meta.state)
 }
 
-func (folder *file) walk(handle func(int, *file) bool) (result bool) {
+type handleResult int
+
+const (
+	advance handleResult = iota
+	stop
+)
+
+func (folder *file) walk(handle func(int, *file) handleResult) (result handleResult) {
 	for idx, child := range folder.children {
 		if child.folder != nil {
 			result = child.walk(handle)
 		} else {
 			result = handle(idx, child)
 		}
-		if !result {
+		if result == stop {
 			break
 		}
 	}

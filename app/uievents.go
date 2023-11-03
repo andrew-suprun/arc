@@ -191,39 +191,41 @@ func (ts *tabState) tab() {
 		return
 	}
 	for _, ts.curArchive = range ts.app.archives {
-		ts.curArchive.rootFolder.walk(ts.handle)
+		if ts.curArchive.rootFolder.walk(ts.handle) == stop {
+			break
+		}
 	}
 	if !ts.done {
 		ts.app.curArchive = ts.firstArchive
-		ts.curArchive.curFolder = ts.firstFolder
-		folder.selectedIdx = ts.firstFileIdx
+		ts.app.curArchive.curFolder = ts.firstFolder
+		ts.app.curArchive.curFolder.selectedIdx = ts.firstFileIdx
 		ts.app.makeSelectedVisible = true
 	}
 }
 
-func (ts *tabState) handle(idx int, f *file) bool {
+func (ts *tabState) handle(idx int, f *file) handleResult {
 	if ts.curFile.hash == f.hash {
 		if ts.foundSameFile {
 			ts.app.curArchive = ts.curArchive
-			ts.curArchive.curFolder = f
-			f.selectedIdx = idx
+			ts.app.curArchive.curFolder = f.parent
+			f.parent.selectedIdx = idx
 			ts.app.makeSelectedVisible = true
-			return false
+			ts.done = true
+			return stop
 		}
 		if ts.firstArchive == nil {
 			ts.firstArchive = ts.curArchive
-			ts.firstFolder = f
+			ts.firstFolder = f.parent
 			ts.firstFileIdx = idx
 		}
 		if f == ts.curFile {
 			ts.foundSameFile = true
 		}
 	}
-	return true
+	return advance
 }
 
 func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
-	log.Debug("resolve", "arcIdx", sourceArcIdx, "source", source, "explicit", explicit)
 	if source.state != divergent {
 		return
 	}
@@ -235,11 +237,11 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 	}
 	sameHash := make([][]*file, len(app.archives))
 	for arcIdx, archive := range app.archives {
-		archive.rootFolder.walk(func(_ int, child *file) bool {
+		archive.rootFolder.walk(func(_ int, child *file) handleResult {
 			if child.hash == source.hash {
 				sameHash[arcIdx] = append(sameHash[arcIdx], child)
 			}
-			return true
+			return advance
 		})
 	}
 
@@ -309,11 +311,11 @@ func (app *appState) delete(sourceArcIdx int, source *file) {
 
 	sameHash := make([][]*file, len(app.archives))
 	for arcIdx, archive := range app.archives {
-		archive.rootFolder.walk(func(_ int, child *file) bool {
+		archive.rootFolder.walk(func(_ int, child *file) handleResult {
 			if child.hash == source.hash {
 				sameHash[arcIdx] = append(sameHash[arcIdx], child)
 			}
-			return true
+			return advance
 		})
 	}
 

@@ -17,8 +17,7 @@ var (
 )
 
 func (app *appState) render(screen tcell.Screen) {
-	archive := app.curArchive
-	folder := archive.curFolder
+	folder := app.curArchive.curFolder
 	folder.sort()
 	folder.updateMetas()
 
