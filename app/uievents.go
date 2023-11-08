@@ -94,10 +94,7 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		app.resolve(app.curArciveIdx(), folder.children[folder.selectedIdx], true)
 
 	case "Ctrl+A":
-		folder := app.curArchive.curFolder
-		for _, child := range folder.children {
-			app.resolve(app.curArciveIdx(), child, false)
-		}
+		app.resolve(app.curArciveIdx(), app.curArchive.curFolder, false)
 
 	case "Tab":
 		(&tabState{app: app}).tab()

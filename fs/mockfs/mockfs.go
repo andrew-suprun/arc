@@ -167,7 +167,7 @@ func init() {
 
 	or = append(or, fs.FileMeta{
 		Root:    "origin",
-		Path:    "bbb/ccc",
+		Path:    "bbb",
 		Size:    123,
 		ModTime: time.Now(),
 		Hash:    "111",
