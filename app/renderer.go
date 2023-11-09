@@ -17,8 +17,9 @@ var (
 )
 
 func (app *appState) render(screen tcell.Screen) {
+	app.sort()
+
 	folder := app.curArchive.curFolder
-	folder.sort()
 	folder.updateMetas()
 
 	b := &builder{width: width(app.screenWidth), height: app.screenHeight, screen: screen}

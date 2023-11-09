@@ -6,12 +6,14 @@ import (
 	"strings"
 )
 
-func (folder *folder) sort() {
+func (app *appState) sort() {
+	folder := app.curArchive.curFolder
 	if folder.sorted {
 		return
 	}
 	folder.sorted = true
 
+	selected := folder.children[folder.selectedIdx]
 	entries := folder.children
 	switch folder.sortColumn {
 	case sortByName:
@@ -23,6 +25,16 @@ func (folder *folder) sort() {
 	}
 	if !folder.sortAscending[folder.sortColumn] {
 		entries.reverse()
+	}
+	if folder.keepSelected {
+		for idx, file := range folder.children {
+			if file == selected {
+				folder.selectedIdx = idx
+				app.makeSelectedVisible = true
+			}
+		}
+	} else {
+		folder.keepSelected = true
 	}
 }
 

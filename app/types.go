@@ -55,6 +55,7 @@ type (
 		sortColumn    sortColumn
 		sortAscending []bool
 		sorted        bool
+		keepSelected  bool
 	}
 
 	archiveState int
