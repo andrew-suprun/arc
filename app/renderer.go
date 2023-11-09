@@ -127,7 +127,7 @@ func (app *appState) folderView(b *builder) {
 		}
 	})
 
-	b.text("  Date Modified"+folder.sortIndicator(sortByTime), width(22), func(offset, width width) {
+	b.text("   Date Modified"+folder.sortIndicator(sortByTime), width(22), func(offset, width width) {
 		app.sortTargets[1] = sortTarget{
 			sortColumn: sortByTime,
 			offset:     offset,

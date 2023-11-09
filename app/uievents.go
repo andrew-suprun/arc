@@ -160,14 +160,16 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 		if idx < len(folder.children) {
 			folder.selectedIdx = folder.offsetIdx + y - 3
 		}
-		if curSelectedIdx == folder.selectedIdx && time.Since(app.lastClickTime).Milliseconds() < 500 {
+		if app.lastX == x && app.lastY == y && time.Since(app.lastClickTime).Milliseconds() < 500 {
 			entry := folder.children[curSelectedIdx]
-			if entry.children != nil {
+			if entry.folder != nil {
 				path := append(entry.path(), entry.name)
 				app.curArchive.curFolder = app.curArchive.getFolder(path)
 			}
 		}
 		app.lastClickTime = time.Now()
+		app.lastX = x
+		app.lastY = y
 	}
 }
 

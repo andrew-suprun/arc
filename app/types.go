@@ -19,6 +19,8 @@ type (
 		folderTargets []folderTarget
 		sortTargets   []sortTarget
 		lastClickTime time.Time
+		lastX         width
+		lastY         int
 
 		makeSelectedVisible bool
 		sync                bool
