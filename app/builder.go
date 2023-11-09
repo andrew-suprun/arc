@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -13,105 +12,51 @@ type builder struct {
 	width  int
 	height int
 	screen tcell.Screen
-	sync   bool
-
-	widths  []int
-	offsets []int
-	x, y    int
-	field   int
+	line   int
+	fields []*field
 }
 
-type c struct {
-	size, flex int
+type config struct {
+	style   tcell.Style
+	width   int
+	flex    int
+	handler func(offset, width int)
 }
 
-func (b *builder) pos(x, y int) {
-	b.x = x
-	b.y = y
+type field struct {
+	renderer
+	style   tcell.Style
+	width   int
+	flex    int
+	handler func(offset, width int)
 }
 
-func (b *builder) newLine() {
-	b.x = 0
-	b.y++
-	b.field = 0
+func (b *builder) text(txt string, config config) {
+	runes := []rune(txt)
+	width := config.width
+	if width == 0 {
+		width = len(runes)
+	}
+
+	b.fields = append(b.fields, &field{
+		renderer: &text{text: runes},
+		style:    config.style,
+		width:    width,
+		flex:     config.flex,
+		handler:  config.handler,
+	})
 }
 
-func (b *builder) layout(constraints ...c) {
-	b.widths = make([]int, len(constraints))
-	b.field = 0
-	totalSize, totalFlex := 0, 0
-	for i, cons := range constraints {
-		b.widths[i] = cons.size
-		totalSize += cons.size
-		totalFlex += cons.flex
-	}
-	for totalSize > b.width {
-		idx := 0
-		maxSize := b.widths[0]
-		for i, size := range b.widths {
-			if maxSize < size {
-				maxSize = size
-				idx = i
-			}
-		}
-		b.widths[idx]--
-		totalSize--
-	}
-
-	if totalFlex == 0 {
-		return
-	}
-
-	if totalSize < b.width {
-		diff := b.width - totalSize
-		remainders := make([]float64, len(constraints))
-		for i, cons := range constraints {
-			rate := float64(diff*cons.flex) / float64(totalFlex)
-			remainders[i] = rate - math.Floor(rate)
-			b.widths[i] += int(rate)
-		}
-		totalSize := 0
-		for _, size := range b.widths {
-			totalSize += size
-		}
-		for i := range b.widths {
-			if totalSize == b.width {
-				break
-			}
-			if constraints[i].flex > 0 {
-				b.widths[i]++
-				totalSize++
-			}
-		}
-		for i := range b.widths {
-			if totalSize == b.width {
-				break
-			}
-			if constraints[i].flex == 0 {
-				b.widths[i]++
-				totalSize++
-			}
-		}
-	}
-	b.offsets = make([]int, len(b.widths))
-	b.offsets[0] = 0
-	for i := 1; i < len(b.offsets); i++ {
-		b.offsets[i] = b.offsets[i-1] + b.widths[i-1]
-	}
+func (b *builder) progressBar(value float64, style tcell.Style) {
+	b.fields = append(b.fields, &field{
+		renderer: &progressBar{value: value},
+		style:    style,
+		width:    10,
+		flex:     1,
+	})
 }
 
-func (b *builder) text(text string, style tcell.Style) {
-	runes := trim([]rune(text), b.widths[b.field])
-	for i, ch := range runes {
-		b.screen.SetContent(b.x+i, b.y, ch, nil, style)
-	}
-	b.x += len(runes)
-	b.field++
-}
-
-const modTimeFormat = "  " + time.RFC3339
-
-func (b *builder) state(file *file, style tcell.Style) {
+func (b *builder) state(file *file, config config) {
 	if file.progress > 0 && file.progress < file.size {
 		value := float64(file.progress) / float64(file.size)
 		b.progressBar(value, styleProgressBar)
@@ -119,15 +64,145 @@ func (b *builder) state(file *file, style tcell.Style) {
 	}
 	switch file.state {
 	case scanned, hashed:
-		b.text("", style)
+		b.text("", config)
 
 	case pending:
-		b.text(" Pending", style)
+		b.text(" Pending", config)
 
 	case divergent:
-		b.text(fileCounts(file), style)
+		b.text(fileCounts(file), config)
 	}
 }
+
+func (b *builder) layout() {
+	totalWidth, totalFlex := 0, 0
+	for _, field := range b.fields {
+		totalWidth += field.width
+		totalFlex += field.flex
+	}
+	for totalWidth > b.width {
+		idx := 0
+		maxSize := b.fields[0].width
+		for i, field := range b.fields {
+			if maxSize < field.width {
+				maxSize = field.width
+				idx = i
+			}
+		}
+		b.fields[idx].width--
+		totalWidth--
+	}
+
+	if totalFlex == 0 {
+		return
+	}
+
+	if totalWidth < b.width {
+		diff := b.width - totalWidth
+		remainders := make([]float64, len(b.fields))
+		for i, field := range b.fields {
+			rate := float64(diff*field.flex) / float64(totalFlex)
+			remainders[i] = rate - math.Floor(rate)
+			b.fields[i].width += int(rate)
+		}
+		totalWidth := 0
+		for _, field := range b.fields {
+			totalWidth += field.width
+		}
+		for _, field := range b.fields {
+			if totalWidth == b.width {
+				break
+			}
+			if field.flex > 0 {
+				field.width++
+				totalWidth++
+			}
+		}
+		for _, field := range b.fields {
+			if totalWidth == b.width {
+				break
+			}
+			if field.flex == 0 {
+				field.width++
+				totalWidth++
+			}
+		}
+	}
+}
+
+func (b *builder) newLine() {
+	b.layout()
+	x := 0
+	for _, field := range b.fields {
+		if field.handler != nil {
+			field.handler(x, field.width)
+		}
+		for i, ch := range field.runes(field.width) {
+			b.screen.SetContent(x+i, b.line, ch, nil, field.style)
+		}
+		x += field.width
+	}
+	b.fields = b.fields[:0]
+	b.line++
+}
+
+func (b *builder) show(sync bool) {
+	if sync {
+		b.screen.Sync()
+	} else {
+		b.screen.Show()
+	}
+}
+
+type renderer interface {
+	runes(width int) []rune
+}
+
+type text struct {
+	text []rune
+}
+
+func (t *text) runes(width int) []rune {
+	if width < 1 {
+		return nil
+	}
+	if len(t.text) > int(width) {
+		t.text = append(t.text[:width-1], '…')
+	}
+	diff := int(width) - len(t.text)
+	for diff > 0 {
+		t.text = append(t.text, ' ')
+		diff--
+	}
+	return t.text
+}
+
+type progressBar struct {
+	value float64
+}
+
+func (pb *progressBar) runes(width int) []rune {
+	if pb.value < 0 || pb.value > 1 {
+		panic(fmt.Sprintf("Invalid progressBar value: %v", pb.value))
+	}
+
+	runes := make([]rune, width)
+	progress := int(math.Round(float64(width*8) * float64(pb.value)))
+	idx := 0
+	for ; idx < progress/8; idx++ {
+		runes[idx] = '█'
+	}
+	if progress%8 > 0 {
+		runes[idx] = []rune{' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉'}[progress%8]
+		idx++
+	}
+	for ; idx < int(width); idx++ {
+		runes[idx] = ' '
+	}
+	return runes
+}
+
+const modTimeFormat = "  2006-01-02T15:04:05"
 
 func fileCounts(file *file) string {
 	buf := &strings.Builder{}
@@ -172,64 +247,4 @@ func (f *folder) sortIndicator(column sortColumn) string {
 		return " ▼"
 	}
 	return ""
-}
-
-func (b *builder) progressBar(value float64, style tcell.Style) {
-	if value < 0 || value > 1 {
-		panic(fmt.Sprintf("Invalid progressBar value: %v", value))
-	}
-	width := b.widths[b.field]
-
-	runes := make([]rune, width)
-	progress := int(math.Round(float64(width*8) * float64(value)))
-	idx := 0
-	for ; idx < progress/8; idx++ {
-		runes[idx] = '█'
-	}
-	if progress%8 > 0 {
-		runes[idx] = []rune{' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉'}[progress%8]
-		idx++
-	}
-	for ; idx < int(width); idx++ {
-		runes[idx] = ' '
-	}
-	for i, ch := range runes {
-		b.screen.SetContent(b.x+i, b.y, ch, nil, style)
-	}
-	b.field++
-	b.x += len(runes)
-}
-
-func (b *builder) space(width, height int, style tcell.Style) {
-	for line := b.y; line < b.y+height; line++ {
-		for row := b.x; row < b.x+width; row++ {
-			b.screen.SetContent(row, line, ' ', nil, style)
-		}
-	}
-	b.y += height - 1
-	b.x += width
-	b.field++
-}
-
-func trim(runes []rune, width int) []rune {
-	if width < 1 {
-		return nil
-	}
-	if len(runes) > int(width) {
-		runes = append(runes[:width-1], '…')
-	}
-	diff := int(width) - len(runes)
-	for diff > 0 {
-		runes = append(runes, ' ')
-		diff--
-	}
-	return runes
-}
-
-func (b *builder) show() {
-	if b.sync {
-		b.screen.Sync()
-	} else {
-		b.screen.Show()
-	}
 }
