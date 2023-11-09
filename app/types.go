@@ -61,14 +61,14 @@ type (
 
 	folderTarget struct {
 		path   []string
-		offset int
-		width  int
+		offset width
+		width  width
 	}
 
 	sortTarget struct {
 		sortColumn
-		offset int
-		width  int
+		offset width
+		width  width
 	}
 )
 

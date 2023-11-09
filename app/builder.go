@@ -1,6 +1,7 @@
 package app
 
 import (
+	"arc/log"
 	"fmt"
 	"math"
 	"strings"
@@ -9,48 +10,55 @@ import (
 )
 
 type builder struct {
-	width  int
-	height int
-	screen tcell.Screen
-	line   int
-	fields []*field
+	width    width
+	height   int
+	screen   tcell.Screen
+	line     int
+	fields   []*field
+	curStyle tcell.Style
 }
 
-type config struct {
-	style   tcell.Style
-	width   int
-	flex    int
-	handler func(offset, width int)
-}
+type config interface{}
+type width int
+type flex int
+type handler func(offset, width width)
 
 type field struct {
 	renderer
-	style   tcell.Style
-	width   int
-	flex    int
-	handler func(offset, width int)
+	width
+	flex
+	handler
 }
 
-func (b *builder) text(txt string, config config) {
-	runes := []rune(txt)
-	width := config.width
-	if width == 0 {
-		width = len(runes)
-	}
+func (b *builder) style(style tcell.Style) {
+	b.curStyle = style
+}
 
-	b.fields = append(b.fields, &field{
+func (b *builder) text(txt string, configs ...config) {
+	runes := []rune(txt)
+	field := &field{
 		renderer: &text{text: runes},
-		style:    config.style,
-		width:    width,
-		flex:     config.flex,
-		handler:  config.handler,
-	})
+	}
+	for _, config := range configs {
+		log.Debug("text", "config", fmt.Sprintf("%T", config))
+		switch config := config.(type) {
+		case width:
+			field.width = config
+		case flex:
+			field.flex = config
+		case func(offset, width width):
+			field.handler = config
+		}
+	}
+	if field.width == 0 {
+		field.width = width(len(runes))
+	}
+	b.fields = append(b.fields, field)
 }
 
 func (b *builder) progressBar(value float64, style tcell.Style) {
 	b.fields = append(b.fields, &field{
 		renderer: &progressBar{value: value},
-		style:    style,
 		width:    10,
 		flex:     1,
 	})
@@ -75,7 +83,7 @@ func (b *builder) state(file *file, config config) {
 }
 
 func (b *builder) layout() {
-	totalWidth, totalFlex := 0, 0
+	totalWidth, totalFlex := width(0), flex(0)
 	for _, field := range b.fields {
 		totalWidth += field.width
 		totalFlex += field.flex
@@ -101,11 +109,11 @@ func (b *builder) layout() {
 		diff := b.width - totalWidth
 		remainders := make([]float64, len(b.fields))
 		for i, field := range b.fields {
-			rate := float64(diff*field.flex) / float64(totalFlex)
+			rate := float64(diff*width(field.flex)) / float64(totalFlex)
 			remainders[i] = rate - math.Floor(rate)
-			b.fields[i].width += int(rate)
+			b.fields[i].width += width(rate)
 		}
-		totalWidth := 0
+		totalWidth := width(0)
 		for _, field := range b.fields {
 			totalWidth += field.width
 		}
@@ -132,13 +140,13 @@ func (b *builder) layout() {
 
 func (b *builder) newLine() {
 	b.layout()
-	x := 0
+	x := width(0)
 	for _, field := range b.fields {
 		if field.handler != nil {
 			field.handler(x, field.width)
 		}
 		for i, ch := range field.runes(field.width) {
-			b.screen.SetContent(x+i, b.line, ch, nil, field.style)
+			b.screen.SetContent(int(x)+i, b.line, ch, nil, b.curStyle)
 		}
 		x += field.width
 	}
@@ -155,14 +163,14 @@ func (b *builder) show(sync bool) {
 }
 
 type renderer interface {
-	runes(width int) []rune
+	runes(width width) []rune
 }
 
 type text struct {
 	text []rune
 }
 
-func (t *text) runes(width int) []rune {
+func (t *text) runes(width width) []rune {
 	if width < 1 {
 		return nil
 	}
@@ -181,7 +189,7 @@ type progressBar struct {
 	value float64
 }
 
-func (pb *progressBar) runes(width int) []rune {
+func (pb *progressBar) runes(width width) []rune {
 	if pb.value < 0 || pb.value > 1 {
 		panic(fmt.Sprintf("Invalid progressBar value: %v", pb.value))
 	}

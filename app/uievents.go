@@ -120,7 +120,8 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 }
 
 func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
-	x, y := event.Position()
+	xx, y := event.Position()
+	x := width(xx)
 	if event.Buttons() == 256 || event.Buttons() == 512 {
 		if y >= 3 && y < app.screenHeight-1 {
 			folder := app.curArchive.curFolder

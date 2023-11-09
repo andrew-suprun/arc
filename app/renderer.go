@@ -21,17 +21,18 @@ func (app *appState) render(screen tcell.Screen) {
 	folder.sort()
 	folder.updateMetas()
 
-	b := &builder{width: app.screenWidth, height: app.screenHeight, screen: screen}
+	b := &builder{width: width(app.screenWidth), height: app.screenHeight, screen: screen}
 
 	if app.screenWidth < 80 || app.screenHeight < 24 {
+		b.style(styleScreenTooSmall)
 		for i := 0; i < app.screenHeight; i++ {
 			if i == app.screenHeight/2 {
-				b.text("", config{style: styleScreenTooSmall, flex: 1})
-				b.text("Too Small...", config{style: styleScreenTooSmall})
-				b.text("", config{style: styleScreenTooSmall, flex: 1})
+				b.text("", flex(1))
+				b.text("Too Small...")
+				b.text("", flex(1))
 				b.newLine()
 			} else {
-				b.text("", config{style: styleScreenTooSmall, flex: 1})
+				b.text("", flex(1))
 				b.newLine()
 			}
 		}
@@ -74,8 +75,10 @@ func (app *appState) render(screen tcell.Screen) {
 }
 
 func (app *appState) showTitle(b *builder) {
-	b.text(" Archive ", config{style: styleAppName, width: 9})
-	b.text(app.curArchive.rootPath, config{style: styleArchive, flex: 1})
+	b.style(styleAppName)
+	b.text(" Archive ")
+	b.style(styleArchive)
+	b.text(app.curArchive.rootPath, flex(1))
 	b.newLine()
 }
 
@@ -83,27 +86,30 @@ func (app *appState) breadcrumbs(b *builder) {
 	app.folderTargets = app.folderTargets[:0]
 	path := app.curArchive.curFolder.fullPath()
 
-	b.text(" Root", config{style: styleBreadcrumbs, handler: func(offset, width int) {
+	b.style(styleBreadcrumbs)
+	b.text(" Root", func(offset, width width) {
 		app.folderTargets = append(app.folderTargets, folderTarget{
 			path:   nil,
 			offset: offset,
 			width:  width,
 		})
-	}})
+	})
 
 	for i, name := range path {
 		i := i
-		b.text(" / ", config{style: styleDefault})
-		b.text(name, config{style: styleBreadcrumbs, handler: func(offset, width int) {
+		b.style(styleDefault)
+		b.text(" / ")
+		b.style(styleBreadcrumbs)
+		b.text(name, func(offset, width width) {
 			app.folderTargets = append(app.folderTargets, folderTarget{
 				path:   path[:i+1],
 				offset: offset,
 				width:  width,
 			})
-		}})
+		})
 	}
 
-	b.text("", config{style: styleBreadcrumbs, flex: 1})
+	b.text("", flex(1))
 	b.newLine()
 }
 
@@ -111,43 +117,32 @@ func (app *appState) folderView(b *builder) {
 	folder := app.curArchive.curFolder
 	app.sortTargets = make([]sortTarget, 3)
 
-	b.text(" State", config{style: styleFolderHeader, width: 11})
-	b.text("   Document"+folder.sortIndicator(sortByName), config{
-		style: styleFolderHeader,
-		width: 23,
-		flex:  1,
-		handler: func(offset, width int) {
-			app.sortTargets[0] = sortTarget{
-				sortColumn: sortByName,
-				offset:     offset,
-				width:      width,
-			}
-		},
+	b.style(styleFolderHeader)
+	b.text(" State", width(11))
+	b.text("   Document"+folder.sortIndicator(sortByName), width(23), flex(1), func(offset, width width) {
+		app.sortTargets[0] = sortTarget{
+			sortColumn: sortByName,
+			offset:     offset,
+			width:      width,
+		}
 	})
 
-	b.text("  Date Modified"+folder.sortIndicator(sortByTime), config{
-		style: styleFolderHeader,
-		width: 22,
-		handler: func(offset, width int) {
-			app.sortTargets[1] = sortTarget{
-				sortColumn: sortByTime,
-				offset:     offset,
-				width:      width,
-			}
-		},
+	b.text("  Date Modified"+folder.sortIndicator(sortByTime), width(22), func(offset, width width) {
+		app.sortTargets[1] = sortTarget{
+			sortColumn: sortByTime,
+			offset:     offset,
+			width:      width,
+		}
 	})
 
-	b.text(fmt.Sprintf("%19s", "Size"+folder.sortIndicator(sortBySize)), config{
-		style: styleFolderHeader,
-		handler: func(offset, width int) {
-			app.sortTargets[2] = sortTarget{
-				sortColumn: sortBySize,
-				offset:     offset,
-				width:      width,
-			}
-		},
+	b.text(fmt.Sprintf("%19s", "Size"+folder.sortIndicator(sortBySize)), func(offset, width width) {
+		app.sortTargets[2] = sortTarget{
+			sortColumn: sortBySize,
+			offset:     offset,
+			width:      width,
+		}
 	})
-	b.text(" ", config{style: styleFolderHeader})
+	b.text(" ")
 	b.newLine()
 
 	lines := app.screenHeight - 4
@@ -158,22 +153,23 @@ func (app *appState) folderView(b *builder) {
 			break
 		}
 
-		style := fileStyle(file).Reverse(folder.selectedIdx == folder.offsetIdx+i)
-		b.state(file, config{style: style, width: 11})
+		b.style(fileStyle(file).Reverse(folder.selectedIdx == folder.offsetIdx+i))
+		b.state(file, width(11))
 		if file.folder == nil {
-			b.text("   ", config{style: style})
+			b.text("   ")
 		} else {
-			b.text(" ▶ ", config{style: style})
+			b.text(" ▶ ")
 		}
-		b.text(file.name, config{style: style, width: 20, flex: 1})
-		b.text(file.modTime.Format(modTimeFormat), config{style: style})
-		b.text(formatSize(file.size), config{style: style})
-		b.text(" ", config{style: style})
+		b.text(file.name, width(20), flex(1))
+		b.text(file.modTime.Format(modTimeFormat))
+		b.text(formatSize(file.size))
+		b.text(" ")
 		b.newLine()
 	}
+	b.style(styleDefault)
 	rows := len(folder.children) - folder.offsetIdx
 	for rows < lines {
-		b.text("", config{style: styleDefault, flex: 1})
+		b.text("", flex(1))
 		b.newLine()
 		rows++
 	}
@@ -195,6 +191,7 @@ func fileStyle(file *file) tcell.Style {
 }
 
 func (app *appState) statusLine(b *builder) {
-	b.text(" Status line will be here...", config{style: styleArchive, flex: 1})
+	b.style(styleArchive)
+	b.text(" Status line will be here...", flex(1))
 	b.newLine()
 }
