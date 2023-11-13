@@ -129,16 +129,37 @@ func (f *fsys) scanArchive(scan scan) {
 	f.events <- fs.ArchiveHashed{Root: scan.root}
 }
 
-func (fs *fsys) copyFile(copy copy) {
+func (f *fsys) copyFile(copy copy) {
 	log.Debug("copy", "path", copy.path, "from", copy.fromRoot, "to", copy.toRoots)
+	archive := archives[copy.fromRoot]
+	var file fs.FileMeta
+	for _, file = range archive {
+		if file.Path == copy.path {
+			break
+		}
+	}
+	for progress := 0; progress < file.Size; progress += 100000 {
+		if f.quit.Load() {
+			return
+		}
+		f.events <- fs.Progress{
+			Root:     copy.fromRoot,
+			Path:     copy.path,
+			Progress: progress,
+		}
+		time.Sleep(time.Millisecond)
+	}
+	f.events <- fs.Copied{Path: copy.path, FromRoot: copy.fromRoot, ToRoots: copy.toRoots}
 }
 
-func (fs *fsys) renameFile(rename rename) {
+func (f *fsys) renameFile(rename rename) {
 	log.Debug("rename", "root", rename.root, "source", rename.sourcePath, "target", rename.targetPath)
+	f.events <- fs.Renamed{Root: rename.root, SourcePath: rename.sourcePath, TargetPath: rename.targetPath}
 }
 
-func (fs *fsys) deleteFile(delete delete) {
+func (f *fsys) deleteFile(delete delete) {
 	log.Debug("delete", "path", delete.path)
+	f.events <- fs.Deleted{Path: delete.path}
 }
 
 var archives = map[string]fs.FileMetas{}
@@ -160,23 +181,39 @@ func init() {
 	or = append(or, fs.FileMeta{
 		Root:    "origin",
 		Path:    "aaa/bbb/ccc",
-		Size:    123,
+		Size:    11111111,
 		ModTime: time.Now(),
-		Hash:    "111",
+		Hash:    "ccc",
 	})
 
 	or = append(or, fs.FileMeta{
 		Root:    "origin",
 		Path:    "bbb",
-		Size:    123,
+		Size:    12300000,
 		ModTime: time.Now(),
-		Hash:    "111",
+		Hash:    "bbb",
 	})
 
 	c1 = append(c1, fs.FileMeta{
 		Root:    "copy 1",
+		Path:    "bbb",
+		Size:    11111111,
+		ModTime: time.Now(),
+		Hash:    "ccc",
+	})
+
+	c1 = append(c1, fs.FileMeta{
+		Root:    "copy 1",
+		Path:    "aaa/bbb/ccc",
+		Size:    12300000,
+		ModTime: time.Now(),
+		Hash:    "bbb",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Root:    "copy 2",
 		Path:    "aaa/bbb",
-		Size:    234,
+		Size:    23400000,
 		ModTime: time.Now(),
 		Hash:    "222",
 	})
@@ -184,7 +221,7 @@ func init() {
 	c2 = append(c2, fs.FileMeta{
 		Root:    "copy 2",
 		Path:    "ddd/eee",
-		Size:    123,
+		Size:    12300000,
 		ModTime: time.Now(),
 		Hash:    "111",
 	})
@@ -192,7 +229,7 @@ func init() {
 	c2 = append(c2, fs.FileMeta{
 		Root:    "copy 2",
 		Path:    "ddd/fff",
-		Size:    333,
+		Size:    33300000,
 		ModTime: time.Now(),
 		Hash:    "333",
 	})

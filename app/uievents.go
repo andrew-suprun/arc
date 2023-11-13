@@ -266,6 +266,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 			folder.children = append(folder.children, clone)
 			folder.sorted = false
 			clone.parent = folder
+			clone.state = hashed
 		}
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
 	}
@@ -280,7 +281,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		keep := files[0]
 		for _, file := range files {
 			if slices.Equal(file.fullPath(), source.fullPath()) {
-				keep = source
+				keep = file
 				break
 			}
 		}
@@ -293,6 +294,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 					folder := archive.getFolder(source.path())
 					folder.children = append(folder.children, clone)
 					clone.parent = folder
+					clone.state = hashed
 					folder.sorted = false
 					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(clone.fullPath()...))
 				}

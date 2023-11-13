@@ -39,39 +39,44 @@ func (b *builder) text(txt string, configs ...config) {
 	field := &field{
 		renderer: &text{text: runes},
 	}
-	for _, config := range configs {
-		log.Debug("text", "config", fmt.Sprintf("%T", config))
-		switch config := config.(type) {
-		case width:
-			field.width = config
-		case flex:
-			field.flex = config
-		case func(offset, width width):
-			field.handler = config
-		}
-	}
+	field.config(configs)
 	if field.width == 0 {
 		field.width = width(len(runes))
 	}
 	b.fields = append(b.fields, field)
 }
 
-func (b *builder) progressBar(value float64, style tcell.Style) {
-	b.fields = append(b.fields, &field{
+func (f *field) config(configs []config) {
+	for _, config := range configs {
+		switch config := config.(type) {
+		case width:
+			f.width = config
+		case flex:
+			f.flex = config
+		case func(offset, width width):
+			f.handler = config
+		}
+	}
+}
+
+func (b *builder) progressBar(value float64, configs ...config) {
+	field := &field{
 		renderer: &progressBar{value: value},
-		width:    10,
-		flex:     1,
-	})
+	}
+	field.config(configs)
+	b.fields = append(b.fields, field)
+
 }
 
 func (b *builder) state(file *file, config config) {
-	if file.progress > 0 && file.progress < file.size {
+	if file.state == pending || file.state == inProgress {
 		value := float64(file.progress) / float64(file.size)
-		b.progressBar(value, styleProgressBar)
+		b.text(" ")
+		b.progressBar(value, width(10))
 		return
 	}
 	switch file.state {
-	case scanned, hashed:
+	case scanned, hashed, copied, inProgress:
 		b.text("", config)
 
 	case pending:
@@ -79,6 +84,9 @@ func (b *builder) state(file *file, config config) {
 
 	case divergent:
 		b.text(fileCounts(file), config)
+
+	default:
+		log.Debug("state", "file", file)
 	}
 }
 
