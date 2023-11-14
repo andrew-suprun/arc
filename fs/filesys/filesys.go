@@ -13,6 +13,7 @@ import (
 type fsys struct {
 	commands *stream.Stream[command]
 	events   chan fs.Event
+	metas    map[uint64]*fs.FileMeta
 	quit     atomic.Bool
 }
 
@@ -46,6 +47,7 @@ func NewFS() fs.FS {
 	fs := &fsys{
 		commands: stream.NewStream[command]("commands"),
 		events:   make(chan fs.Event, 256),
+		metas:    map[uint64]*fs.FileMeta{},
 	}
 	go fs.run()
 	return fs
@@ -106,9 +108,6 @@ func (fs *fsys) run() {
 			}
 		}
 	}
-}
-
-func (fs *fsys) scanArchive(scan scan) {
 }
 
 func (fs *fsys) copyFile(copy copy) {
