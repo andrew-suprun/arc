@@ -1,4 +1,4 @@
-* file system
+* redesign analysis
+* status line
 * search/filter
 * copy/paste
-* status line

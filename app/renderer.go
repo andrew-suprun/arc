@@ -176,6 +176,9 @@ func (app *appState) folderView(b *builder) {
 }
 
 func fileStyle(file *file) tcell.Style {
+	if file.progress > 0 && file.progress < file.size {
+		return tcell.StyleDefault.Foreground(tcell.PaletteColor(195)).Background(tcell.PaletteColor(17))
+	}
 	fg := 231
 	switch file.state {
 	case scanned:

@@ -12,7 +12,23 @@ func (app *appState) handleFsEvent(event fs.Event) {
 	switch event := event.(type) {
 	case fs.FileMetas:
 		for _, meta := range event {
-			app.addFileMeta(meta)
+			archive := app.archive(meta.Root)
+			path, name := parseName(meta.Path)
+			incoming := &file{
+				name:    name,
+				size:    meta.Size,
+				modTime: meta.ModTime,
+				hash:    meta.Hash,
+				state:   scanned,
+			}
+			if meta.Hash != "" {
+				incoming.state = hashed
+				incoming.progress = incoming.size
+			}
+			folder := archive.getFolder(path)
+			folder.children = append(folder.children, incoming)
+			incoming.parent = folder
+			folder.sorted = false
 		}
 
 	case fs.FileHashed:
@@ -47,25 +63,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
 		panic(event)
 	}
-}
-
-func (app *appState) addFileMeta(meta fs.FileMeta) {
-	archive := app.archive(meta.Root)
-	path, name := parseName(meta.Path)
-	incoming := &file{
-		name:    name,
-		size:    meta.Size,
-		modTime: meta.ModTime,
-		hash:    meta.Hash,
-		state:   scanned,
-	}
-	folder := archive.rootFolder
-	for _, sub := range path {
-		folder = folder.getSub(sub)
-	}
-	folder.children = append(folder.children, incoming)
-	incoming.parent = folder
-	folder.sorted = false
 }
 
 func (app *appState) analyze() {

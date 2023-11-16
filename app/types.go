@@ -82,8 +82,8 @@ const (
 
 const (
 	scanned fileState = iota
-	inProgress
 	hashed
+	inProgress
 	pending
 	divergent
 )

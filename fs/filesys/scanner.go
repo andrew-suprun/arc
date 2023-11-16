@@ -22,6 +22,11 @@ import (
 
 const hashFileName = ".meta.csv"
 
+type meta struct {
+	inode uint64
+	file  *fs.FileMeta
+}
+
 func (s *fsys) scanArchive(scan scan) {
 	defer func() {
 		s.events <- fs.ArchiveHashed{
@@ -29,7 +34,8 @@ func (s *fsys) scanArchive(scan scan) {
 		}
 	}()
 
-	metas := map[uint64]*fs.FileMeta{}
+	metaSlice := []*meta{}
+	metaMap := map[uint64]*fs.FileMeta{}
 	fsys := os.DirFS(scan.root)
 	iofs.WalkDir(fsys, ".", func(path string, d iofs.DirEntry, err error) error {
 		if s.commands.Closed() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
@@ -41,55 +47,60 @@ func (s *fsys) scanArchive(scan scan) {
 			return nil
 		}
 
-		meta, err := d.Info()
+		info, err := d.Info()
 		if err != nil {
 			s.events <- fs.Error{Path: scan.root, Error: err}
 			return nil
 		}
-		sys := meta.Sys().(*syscall.Stat_t)
-		modTime := meta.ModTime()
+		sys := info.Sys().(*syscall.Stat_t)
+		modTime := info.ModTime()
 		modTime = modTime.UTC().Round(time.Second)
 
 		file := &fs.FileMeta{
 			Root:    scan.root,
 			Path:    norm.NFC.String(path),
-			Size:    int(meta.Size()),
+			Size:    int(info.Size()),
 			ModTime: modTime,
 		}
 
-		metas[sys.Ino] = file
+		metaSlice = append(metaSlice, &meta{
+			inode: sys.Ino,
+			file:  file,
+		})
+		metaMap[sys.Ino] = file
 
 		return nil
 	})
 
-	s.readMeta(scan.root, metas)
+	s.readMeta(scan.root, metaMap)
 
-	slice := fs.FileMetas{}
-	for _, meta := range metas {
-		slice = append(slice, *meta)
+	slices.SortFunc(metaSlice, func(a, b *meta) int {
+		return cmp.Compare(strings.ToLower(a.file.Path), strings.ToLower(b.file.Path))
+	})
+
+	slice := make(fs.FileMetas, 0, len(metaSlice))
+	for _, meta := range metaSlice {
+		slice = append(slice, *meta.file)
 	}
+
 	s.events <- slice
 
 	defer func() {
-		s.storeMeta(scan.root, slice)
+		s.storeMeta(scan.root, metaSlice)
 	}()
 
-	slices.SortFunc(slice, func(a, b fs.FileMeta) int {
-		return cmp.Compare(a.Path, b.Path)
-	})
-
-	for _, meta := range slice {
-		if meta.Hash != "" {
+	for _, meta := range metaSlice {
+		if meta.file.Hash != "" {
 			continue
 		}
 		if s.commands.Closed() {
 			return
 		}
-		meta.Hash = s.hashFile(scan.root, meta.Path)
+		meta.file.Hash = s.hashFile(scan.root, meta.file.Path)
 		s.events <- fs.FileHashed{
 			Root: scan.root,
-			Path: meta.Path,
-			Hash: meta.Hash,
+			Path: meta.file.Path,
+			Hash: meta.file.Hash,
 		}
 	}
 }
@@ -126,20 +137,20 @@ func (s *fsys) readMeta(root string, metas map[uint64]*fs.FileMeta) {
 	}
 }
 
-func (s *fsys) storeMeta(root string, metas fs.FileMetas) error {
+func (s *fsys) storeMeta(root string, metas []*meta) error {
 	result := make([][]string, 1, len(metas)+1)
 	result[0] = []string{"INode", "Name", "Size", "ModTime", "Hash"}
 
-	for iNode, file := range metas {
-		if file.Hash == "" {
+	for _, meta := range metas {
+		if meta.file.Hash == "" {
 			continue
 		}
 		result = append(result, []string{
-			fmt.Sprint(iNode),
-			norm.NFC.String(file.Path),
-			fmt.Sprint(file.Size),
-			file.ModTime.UTC().Format(time.RFC3339Nano),
-			file.Hash,
+			fmt.Sprint(meta.inode),
+			norm.NFC.String(meta.file.Path),
+			fmt.Sprint(meta.file.Size),
+			meta.file.ModTime.UTC().Format(time.RFC3339Nano),
+			meta.file.Hash,
 		})
 	}
 

@@ -68,7 +68,7 @@ func (b *builder) progressBar(value float64, configs ...config) {
 }
 
 func (b *builder) state(file *file, config config) {
-	if file.state == pending || file.state == inProgress {
+	if file.progress > 0 && file.progress < file.size {
 		value := float64(file.progress) / float64(file.size)
 		b.text(" ")
 		b.progressBar(value, width(10))

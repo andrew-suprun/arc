@@ -107,7 +107,11 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		// TODO Switch Debug On/Off
 
 	case "F12":
-		// TODO Print App State
+		log.Debug("----")
+
+		for i, file := range app.curArchive.curFolder.children {
+			log.Debug("line", "idx", i, "file", file)
+		}
 
 	default:
 		if event.Name() >= "Rune[1]" && event.Name() <= "Rune[9]" {
