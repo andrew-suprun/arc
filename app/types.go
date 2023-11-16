@@ -85,7 +85,6 @@ const (
 	inProgress
 	hashed
 	pending
-	copied
 	divergent
 )
 
@@ -144,8 +143,6 @@ func (s fileState) String() string {
 		return "hashed"
 	case pending:
 		return "pending"
-	case copied:
-		return "copied"
 	case divergent:
 		return "divergent"
 	}
@@ -237,7 +234,7 @@ func (folder *file) updateMetas() {
 		}
 		folder.updateMeta(child)
 	}
-	if folder.size == 0 {
+	if folder.size == 0 && folder.parent != nil {
 		folder.parent.deleteFile(folder)
 	}
 }

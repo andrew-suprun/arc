@@ -35,13 +35,17 @@ func (app *appState) handleFsEvent(event fs.Event) {
 
 	case fs.Copied:
 		path, name := parseName(event.Path)
-		app.archive(event.FromRoot).getFolder(path).getChild(name).state = copied
+		app.archive(event.FromRoot).getFolder(path).getChild(name).state = hashed
+
+	case fs.Renamed, fs.Deleted:
+		// Do nothing
 
 	case fs.Quit:
 		app.quit = true
 
 	default:
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
+		panic(event)
 	}
 }
 

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"arc/log"
 	"fmt"
 	"math"
 	"strings"
@@ -76,7 +75,7 @@ func (b *builder) state(file *file, config config) {
 		return
 	}
 	switch file.state {
-	case scanned, hashed, copied, inProgress:
+	case scanned, hashed, inProgress:
 		b.text("", config)
 
 	case pending:
@@ -86,7 +85,7 @@ func (b *builder) state(file *file, config config) {
 		b.text(fileCounts(file), config)
 
 	default:
-		log.Debug("state", "file", file)
+		panic("invalid file state")
 	}
 }
 

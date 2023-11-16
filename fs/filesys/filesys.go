@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -16,8 +15,6 @@ import (
 type fsys struct {
 	commands *stream.Stream[command]
 	events   chan fs.Event
-	metas    map[uint64]*fs.FileMeta
-	quit     atomic.Bool
 }
 
 type command interface {
@@ -50,7 +47,6 @@ func NewFS() fs.FS {
 	fs := &fsys{
 		commands: stream.NewStream[command]("commands"),
 		events:   make(chan fs.Event, 256),
-		metas:    map[uint64]*fs.FileMeta{},
 	}
 	go fs.run()
 	return fs
@@ -77,7 +73,7 @@ func (fs *fsys) Delete(path string) {
 }
 
 func (fs *fsys) Quit() {
-	fs.quit.Store(true)
+	fs.commands.Close()
 }
 
 func AbsPath(path string) (string, error) {
@@ -95,22 +91,26 @@ func AbsPath(path string) (string, error) {
 	return path, nil
 }
 
-func (fs *fsys) run() {
-	for !fs.quit.Load() {
-		commands, _ := fs.commands.Pull()
+func (f *fsys) run() {
+	for {
+		commands, closed := f.commands.Pull()
+		if closed {
+			break
+		}
 		for _, command := range commands {
 			switch cmd := command.(type) {
 			case scan:
-				fs.scanArchive(cmd)
+				f.scanArchive(cmd)
 			case copy:
-				fs.copyFile(cmd)
+				f.copyFile(cmd)
 			case rename:
-				fs.renameFile(cmd)
+				f.renameFile(cmd)
 			case delete:
-				fs.deleteFile(cmd)
+				f.deleteFile(cmd)
 			}
 		}
 	}
+	f.events <- fs.Quit{}
 }
 
 func (f *fsys) renameFile(rename rename) {

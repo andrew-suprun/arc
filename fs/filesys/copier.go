@@ -2,7 +2,6 @@ package filesys
 
 import (
 	"arc/fs"
-	"arc/log"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,11 +9,6 @@ import (
 )
 
 func (f *fsys) copyFile(copy copy) {
-	log.Debug("copy", "from", copy.fromRoot)
-	for _, to := range copy.toRoots {
-		log.Debug("copy", "to", to)
-	}
-
 	defer func() {
 		f.events <- fs.Copied{
 			Path:     copy.path,
@@ -31,7 +25,7 @@ func (f *fsys) copyFile(copy copy) {
 		events[i] = make(chan event, 1)
 	}
 
-	go f.reader(copy.fromRoot, copy.toRoots, events)
+	go f.reader(copy, events)
 
 	for {
 		hasValue := false
@@ -80,37 +74,38 @@ type copyError fs.Error
 
 func (copyError) event() {}
 
-func (f *fsys) reader(source string, targets []string, eventChans []chan event) {
-	commands := make([]chan []byte, len(targets))
+func (f *fsys) reader(copy copy, eventChans []chan event) {
+	commands := make([]chan []byte, len(copy.toRoots))
 	defer func() {
 		for _, cmdChan := range commands {
 			close(cmdChan)
 		}
 	}()
 
+	source := filepath.Join(copy.fromRoot, copy.path)
 	info, err := os.Stat(source)
 	if err != nil {
-		f.events <- fs.Error{Path: source, Error: err}
+		f.events <- fs.Error{Path: copy.fromRoot, Error: err}
 		return
 	}
 
-	for i, to := range targets {
+	for i, to := range copy.toRoots {
 		commands[i] = make(chan []byte)
-		go f.writer(to, info.ModTime(), commands[i], eventChans[i])
+		go f.writer(filepath.Join(to, copy.path), info.ModTime(), commands[i], eventChans[i])
 	}
 
 	sourceFile, err := os.Open(source)
 	if err != nil {
-		f.events <- fs.Error{Path: source, Error: err}
+		f.events <- fs.Error{Path: copy.fromRoot, Error: err}
 		return
 	}
 
 	var n int
-	for err != io.EOF && !f.quit.Load() {
+	for err != io.EOF && !f.commands.Closed() {
 		buf := make([]byte, 1024*1024)
 		n, err = sourceFile.Read(buf)
 		if err != nil && err != io.EOF {
-			f.events <- fs.Error{Path: source, Error: err}
+			f.events <- fs.Error{Path: copy.fromRoot, Error: err}
 			return
 		}
 		for _, cmd := range commands {
@@ -133,7 +128,7 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 	defer func() {
 		if file != nil {
 			file.Close()
-			if f.quit.Load() {
+			if f.commands.Closed() {
 				os.Remove(filePath)
 			}
 			os.Chtimes(to, time.Now(), modTime)
@@ -142,7 +137,7 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 	}()
 
 	for cmd := range cmdChan {
-		if f.quit.Load() {
+		if f.commands.Closed() {
 			return
 		}
 

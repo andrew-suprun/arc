@@ -277,7 +277,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 		if len(files) == 0 {
 			continue
 		}
-		source.state = pending
+		source.state = hashed
 		keep := files[0]
 		for _, file := range files {
 			if slices.Equal(file.fullPath(), source.fullPath()) {
@@ -294,7 +294,6 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 					folder := archive.getFolder(source.path())
 					folder.children = append(folder.children, clone)
 					clone.parent = folder
-					clone.state = hashed
 					folder.sorted = false
 					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(clone.fullPath()...))
 				}

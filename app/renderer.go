@@ -13,7 +13,6 @@ var (
 	styleArchive        = tcell.StyleDefault.Foreground(tcell.Color226).Background(tcell.ColorBlack).Bold(true)
 	styleBreadcrumbs    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.Color17).Bold(true).Italic(true)
 	styleFolderHeader   = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorGray).Bold(true)
-	styleProgressBar    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorLightGray)
 )
 
 func (app *appState) render(screen tcell.Screen) {

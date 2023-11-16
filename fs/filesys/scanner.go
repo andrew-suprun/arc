@@ -2,6 +2,7 @@ package filesys
 
 import (
 	"arc/fs"
+	"cmp"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/csv"
@@ -10,6 +11,7 @@ import (
 	iofs "io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,9 +29,10 @@ func (s *fsys) scanArchive(scan scan) {
 		}
 	}()
 
+	metas := map[uint64]*fs.FileMeta{}
 	fsys := os.DirFS(scan.root)
 	iofs.WalkDir(fsys, ".", func(path string, d iofs.DirEntry, err error) error {
-		if s.quit.Load() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
+		if s.commands.Closed() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
 
@@ -54,28 +57,32 @@ func (s *fsys) scanArchive(scan scan) {
 			ModTime: modTime,
 		}
 
-		s.metas[sys.Ino] = file
+		metas[sys.Ino] = file
 
 		return nil
 	})
 
-	s.readMeta(scan.root)
+	s.readMeta(scan.root, metas)
 
-	metas := fs.FileMetas{}
-	for _, meta := range s.metas {
-		metas = append(metas, *meta)
+	slice := fs.FileMetas{}
+	for _, meta := range metas {
+		slice = append(slice, *meta)
 	}
-	s.events <- metas
+	s.events <- slice
 
 	defer func() {
-		s.storeMeta(scan.root)
+		s.storeMeta(scan.root, slice)
 	}()
 
-	for _, meta := range s.metas {
+	slices.SortFunc(slice, func(a, b fs.FileMeta) int {
+		return cmp.Compare(a.Path, b.Path)
+	})
+
+	for _, meta := range slice {
 		if meta.Hash != "" {
 			continue
 		}
-		if s.quit.Load() {
+		if s.commands.Closed() {
 			return
 		}
 		meta.Hash = s.hashFile(scan.root, meta.Path)
@@ -87,7 +94,7 @@ func (s *fsys) scanArchive(scan scan) {
 	}
 }
 
-func (s *fsys) readMeta(root string) {
+func (s *fsys) readMeta(root string, metas map[uint64]*fs.FileMeta) {
 	absHashFileName := filepath.Join(root, hashFileName)
 	hashInfoFile, err := os.Open(absHashFileName)
 	if err != nil {
@@ -111,19 +118,19 @@ func (s *fsys) readMeta(root string) {
 				continue
 			}
 
-			info, ok := s.metas[iNode]
+			info, ok := metas[iNode]
 			if hash != "" && ok && info.ModTime == modTime && info.Size == int(size) {
-				s.metas[iNode].Hash = hash
+				metas[iNode].Hash = hash
 			}
 		}
 	}
 }
 
-func (s *fsys) storeMeta(root string) error {
-	result := make([][]string, 1, len(s.metas)+1)
+func (s *fsys) storeMeta(root string, metas fs.FileMetas) error {
+	result := make([][]string, 1, len(metas)+1)
 	result[0] = []string{"INode", "Name", "Size", "ModTime", "Hash"}
 
-	for iNode, file := range s.metas {
+	for iNode, file := range metas {
 		if file.Hash == "" {
 			continue
 		}
@@ -161,7 +168,7 @@ func (s *fsys) hashFile(root, path string) string {
 	defer file.Close()
 
 	for {
-		if s.quit.Load() {
+		if s.commands.Closed() {
 			return ""
 		}
 

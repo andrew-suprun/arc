@@ -8,7 +8,7 @@ import (
 
 func (app *appState) sort() {
 	folder := app.curArchive.curFolder
-	if folder.sorted {
+	if folder.sorted || len(folder.children) == 0 {
 		return
 	}
 	folder.sorted = true

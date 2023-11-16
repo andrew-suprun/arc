@@ -59,3 +59,10 @@ func (s *Stream[T]) Close() {
 	s.Cond.Signal()
 	s.Cond.L.Unlock()
 }
+
+func (s *Stream[T]) Closed() bool {
+	s.Cond.L.Lock()
+	closed := s.closed
+	s.Cond.L.Unlock()
+	return closed
+}
