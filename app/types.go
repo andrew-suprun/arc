@@ -55,7 +55,6 @@ type (
 		sortColumn    sortColumn
 		sortAscending []bool
 		sorted        bool
-		keepSelected  bool
 	}
 
 	archiveState int
@@ -149,29 +148,44 @@ func (s fileState) String() string {
 	panic("Invalid state")
 }
 
-func (parent *file) getSub(sub string) *file {
-	for _, child := range parent.children {
-		if child.name == sub {
-			return child
+func (f *file) findChild(name string) *file {
+	for _, file := range f.children {
+		if file.name == name {
+			return file
 		}
 	}
-	child := &file{
-		name:   sub,
-		state:  scanned,
-		parent: parent,
-		folder: &folder{
-			sortAscending: []bool{true, true, true},
-		},
+	return nil
+}
+
+func (parent *file) getChild(sub string) *file {
+	child := parent.findChild(sub)
+	if child == nil {
+		child = &file{
+			name:   sub,
+			state:  scanned,
+			parent: parent,
+			folder: &folder{
+				sortAscending: []bool{true, true, true},
+			},
+		}
+		parent.children = append(parent.children, child)
+		parent.sorted = false
 	}
-	parent.children = append(parent.children, child)
-	parent.sorted = false
 	return child
 }
 
-func (arc *archive) getFolder(path []string) *file {
+func (arc *archive) findFile(path []string) *file {
 	folder := arc.rootFolder
 	for _, sub := range path {
-		folder = folder.getSub(sub)
+		folder = folder.findChild(sub)
+	}
+	return folder
+}
+
+func (arc *archive) getFile(path []string) *file {
+	folder := arc.rootFolder
+	for _, sub := range path {
+		folder = folder.getChild(sub)
 	}
 	return folder
 }
@@ -186,15 +200,6 @@ func (f *file) clone() *file {
 		state:    f.state,
 		counts:   f.counts,
 	}
-}
-
-func (f *file) getChild(name string) *file {
-	for _, file := range f.children {
-		if file.name == name {
-			return file
-		}
-	}
-	return nil
 }
 
 func (f *file) path() (result []string) {
@@ -270,7 +275,7 @@ func (folder *file) walk(handle func(int, *file) handleResult) (result handleRes
 }
 
 func (arc *archive) deleteFile(file *file) {
-	folder := arc.getFolder(file.path())
+	folder := arc.findFile(file.path())
 	folder.deleteFile(file)
 }
 

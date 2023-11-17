@@ -141,7 +141,7 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 	if y == 1 {
 		for _, target := range app.folderTargets {
 			if target.offset <= x && target.offset+target.width > x {
-				app.curArchive.curFolder = app.curArchive.getFolder(target.path)
+				app.curArchive.curFolder = app.curArchive.findFile(target.path)
 				return
 			}
 		}
@@ -168,7 +168,7 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 			entry := folder.children[curSelectedIdx]
 			if entry.folder != nil {
 				path := append(entry.path(), entry.name)
-				app.curArchive.curFolder = app.curArchive.getFolder(path)
+				app.curArchive.curFolder = app.curArchive.findFile(path)
 			}
 		}
 		app.lastClickTime = time.Now()
@@ -266,7 +266,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 			archive := app.archive(newRoot)
 			app.clearPath(archive, source.fullPath())
 			clone := source.clone()
-			folder := archive.getFolder(source.path())
+			folder := archive.findFile(source.path())
 			folder.children = append(folder.children, clone)
 			folder.sorted = false
 			clone.parent = folder
@@ -295,7 +295,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 					app.clearPath(archive, source.fullPath())
 					archive.deleteFile(file)
 					clone := source.clone()
-					folder := archive.getFolder(source.path())
+					folder := archive.findFile(source.path())
 					folder.children = append(folder.children, clone)
 					clone.parent = folder
 					folder.sorted = false
@@ -341,7 +341,7 @@ func (app *appState) clearPath(archive *archive, path []string) {
 	folder := archive.rootFolder
 	var child *file
 	for _, name := range path {
-		child = folder.getChild(name)
+		child = folder.findChild(name)
 		if child == nil {
 			return
 		}

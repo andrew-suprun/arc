@@ -25,23 +25,20 @@ func (app *appState) handleFsEvent(event fs.Event) {
 				incoming.state = hashed
 				incoming.progress = incoming.size
 			}
-			folder := archive.getFolder(path)
+			folder := archive.getFile(path)
 			folder.children = append(folder.children, incoming)
 			incoming.parent = folder
 			folder.sorted = false
 		}
 
 	case fs.FileHashed:
-		path, name := parseName(event.Path)
-		file := app.archive(event.Root).getFolder(path).getChild(name)
+		file := app.archive(event.Root).findFile(parsePath(event.Path))
 		file.hash = event.Hash
 		file.progress = file.size
 		file.state = hashed
 
 	case fs.Progress:
-		path, name := parseName(event.Path)
-		folder := app.archive(event.Root).getFolder(path)
-		file := folder.getChild(name)
+		file := app.archive(event.Root).findFile(parsePath(event.Path))
 		file.progress = event.Progress
 		file.state = inProgress
 
@@ -50,8 +47,8 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		app.analyze()
 
 	case fs.Copied:
-		path, name := parseName(event.Path)
-		app.archive(event.FromRoot).getFolder(path).getChild(name).state = hashed
+		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))
+		file.state = hashed
 
 	case fs.Renamed, fs.Deleted:
 		// Do nothing

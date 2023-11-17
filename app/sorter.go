@@ -26,15 +26,11 @@ func (app *appState) sort() {
 	if !folder.sortAscending[folder.sortColumn] {
 		entries.reverse()
 	}
-	if folder.keepSelected {
-		for idx, file := range folder.children {
-			if file == selected {
-				folder.selectedIdx = idx
-				app.makeSelectedVisible = true
-			}
+	for idx, file := range folder.children {
+		if file == selected {
+			folder.selectedIdx = idx
+			app.makeSelectedVisible = true
 		}
-	} else {
-		folder.keepSelected = true
 	}
 }
 
