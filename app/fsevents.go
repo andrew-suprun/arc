@@ -4,7 +4,6 @@ import (
 	"arc/fs"
 	"arc/log"
 	"fmt"
-	"slices"
 	"strings"
 )
 
@@ -49,6 +48,8 @@ func (app *appState) handleFsEvent(event fs.Event) {
 	case fs.Copied:
 		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))
 		file.state = hashed
+		file.progress = file.size
+		app.analyze()
 
 	case fs.Renamed, fs.Deleted:
 		// Do nothing
@@ -68,63 +69,29 @@ func (app *appState) analyze() {
 			return
 		}
 	}
-	byHash := map[string][][]*file{}
-	for i, archive := range app.archives {
-		app.collectFilesByHash(i, archive.rootFolder, byHash)
-	}
 
-	for hash, files := range byHash {
-		analyzeDiscrepancy(hash, files)
-	}
-}
-
-func (app *appState) collectFilesByHash(arcIdx int, folder *file, byHash map[string][][]*file) {
-	for _, child := range folder.children {
-		if child.folder != nil {
-			app.collectFilesByHash(arcIdx, child, byHash)
-		} else {
-			sameHash := byHash[child.hash]
-			if sameHash == nil {
-				sameHash = make([][]*file, len(app.archives))
-				byHash[child.hash] = sameHash
+	countsByHash := map[string][]int{}
+	for i, arc := range app.archives {
+		arc.rootFolder.walk(func(_ int, file *file) handleResult {
+			path := file.fullPath()
+			for j, otherArc := range app.archives {
+				if i == j {
+					continue
+				}
+				otherFile := otherArc.findFile(path)
+				if otherFile == nil || otherFile.hash != file.hash {
+					file.state = divergent
+					break
+				}
 			}
-			sameHash[arcIdx] = append(sameHash[arcIdx], child)
-		}
-	}
-}
-
-func analyzeDiscrepancy(hash string, files [][]*file) {
-	discrepancy := false
-	for _, arc := range files {
-		if len(arc) != 1 {
-			discrepancy = true
-			break
-		}
-	}
-
-	if !discrepancy {
-		origin := files[0]
-		for _, copy := range files[1:] {
-			if origin[0].name != copy[0].name ||
-				!slices.Equal(origin[0].path(), copy[0].path()) {
-
-				discrepancy = true
-				break
+			file.counts = countsByHash[file.hash]
+			if file.counts == nil {
+				file.counts = make([]int, len(app.archives))
+				countsByHash[file.hash] = file.counts
 			}
-		}
-	}
-
-	if discrepancy {
-		counts := make([]int, len(files))
-		for i := range files {
-			counts[i] = len(files[i])
-		}
-		for _, arc := range files {
-			for _, file := range arc {
-				file.state = divergent
-				file.counts = counts
-			}
-		}
+			file.counts[i]++
+			return advance
+		})
 	}
 }
 

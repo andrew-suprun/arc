@@ -74,15 +74,22 @@ func (b *builder) state(file *file, config config) {
 		b.progressBar(value, width(10))
 		return
 	}
+	showCounts := false
+	for _, count := range file.counts {
+		if count != 1 {
+			showCounts = true
+		}
+	}
+	if showCounts {
+		b.text(fileCounts(file), config)
+		return
+	}
 	switch file.state {
-	case scanned, hashed, inProgress:
+	case scanned, hashed, inProgress, divergent:
 		b.text("", config)
 
 	case pending:
 		b.text(" Pending", config)
-
-	case divergent:
-		b.text(fileCounts(file), config)
 
 	default:
 		panic("invalid file state")

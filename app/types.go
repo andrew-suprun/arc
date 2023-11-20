@@ -149,6 +149,9 @@ func (s fileState) String() string {
 }
 
 func (f *file) findChild(name string) *file {
+	if f.folder == nil {
+		return nil
+	}
 	for _, file := range f.children {
 		if file.name == name {
 			return file
@@ -175,11 +178,14 @@ func (parent *file) getChild(sub string) *file {
 }
 
 func (arc *archive) findFile(path []string) *file {
-	folder := arc.rootFolder
+	file := arc.rootFolder
 	for _, sub := range path {
-		folder = folder.findChild(sub)
+		file = file.findChild(sub)
+		if file == nil {
+			return nil
+		}
 	}
-	return folder
+	return file
 }
 
 func (arc *archive) getFile(path []string) *file {

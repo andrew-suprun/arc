@@ -166,6 +166,8 @@ var archives = map[string]fs.FileMetas{}
 
 func init() {
 	or := readMeta()
+	// or := fs.FileMetas{}
+
 	for i := range or {
 		or[i].Root = "origin"
 	}
@@ -194,6 +196,30 @@ func init() {
 		Hash:    "bbb",
 	})
 
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "xxx",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "yyy",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "zzz",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
+	})
+
 	c1 = append(c1, fs.FileMeta{
 		Root:    "copy 1",
 		Path:    "bbb",
@@ -208,6 +234,22 @@ func init() {
 		Size:    12300000,
 		ModTime: time.Now(),
 		Hash:    "bbb",
+	})
+
+	c1 = append(c1, fs.FileMeta{
+		Root:    "copy 1",
+		Path:    "xxx",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
+	})
+
+	c1 = append(c1, fs.FileMeta{
+		Root:    "copy 1",
+		Path:    "yyy",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
 	})
 
 	c2 = append(c2, fs.FileMeta{
@@ -232,6 +274,22 @@ func init() {
 		Size:    33300000,
 		ModTime: time.Now(),
 		Hash:    "333",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Root:    "copy 2",
+		Path:    "xxx",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
+	})
+
+	c2 = append(c2, fs.FileMeta{
+		Root:    "copy 2",
+		Path:    "yyy",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "xxx",
 	})
 
 	archives = map[string]fs.FileMetas{

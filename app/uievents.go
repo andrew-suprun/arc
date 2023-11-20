@@ -91,13 +91,16 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 
 	case "Ctrl+R":
 		folder := app.curArchive.curFolder
-		app.resolve(app.curArciveIdx(), folder.children[folder.selectedIdx], true)
+		app.resolve(app.curArciveIdx(), folder.children[folder.selectedIdx])
 
 	case "Ctrl+A":
-		app.resolve(app.curArciveIdx(), app.curArchive.curFolder, false)
+		app.resolve(app.curArciveIdx(), app.curArchive.curFolder)
 
 	case "Tab":
 		(&tabState{app: app}).tab()
+
+	case "Backtab":
+		// TODO
 
 	case "Backspace2": // Ctrl+Delete
 		folder := app.curArchive.curFolder
@@ -229,37 +232,48 @@ func (ts *tabState) handle(idx int, f *file) handleResult {
 	return advance
 }
 
-func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
+func (app *appState) resolve(sourceArcIdx int, source *file) {
 	if source.state != divergent {
 		return
 	}
 	if source.folder != nil {
 		for _, child := range source.children {
-			app.resolve(sourceArcIdx, child, false)
+			app.resolve(sourceArcIdx, child)
 		}
 		return
 	}
-	sameHash := make([][]*file, len(app.archives))
-	for arcIdx, archive := range app.archives {
+
+	path := source.fullPath()
+	roots := make([]string, 0, len(app.archives))
+	for _, archive := range app.archives {
+		otherFile := archive.findFile(path)
+		if otherFile != nil && otherFile.hash == source.hash {
+			continue
+		}
+		app.clearPath(archive, source.fullPath())
+
+		renamed := false
 		archive.rootFolder.walk(func(_ int, child *file) handleResult {
-			if child.hash == source.hash {
-				sameHash[arcIdx] = append(sameHash[arcIdx], child)
+			if child.hash == source.hash && child.state == divergent {
+				archive.deleteFile(child)
+				clone := source.clone()
+				clone.state = hashed
+				folder := archive.getFile(source.path())
+				folder.children = append(folder.children, clone)
+				clone.parent = folder
+				folder.sorted = false
+				app.fs.Rename(archive.rootPath, filepath.Join(child.fullPath()...), filepath.Join(clone.fullPath()...))
+				renamed = true
+				return stop
 			}
 			return advance
 		})
-	}
 
-	if !explicit && len(sameHash[sourceArcIdx]) > 1 {
-		return
-	}
-
-	// copy missing
-	roots := []string{}
-	for arcIdx, archive := range app.archives {
-		if len(sameHash[arcIdx]) == 0 {
+		if !renamed {
 			roots = append(roots, archive.rootPath)
 		}
 	}
+
 	if len(roots) > 0 {
 		source.state = pending
 		for _, newRoot := range roots {
@@ -271,41 +285,9 @@ func (app *appState) resolve(sourceArcIdx int, source *file, explicit bool) {
 			folder.sorted = false
 			clone.parent = folder
 			clone.state = hashed
+			source.state = pending
 		}
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
-	}
-
-	// rename/delete as necessary
-	for arcIdx, files := range sameHash {
-		archive := app.archives[arcIdx]
-		if len(files) == 0 {
-			continue
-		}
-		source.state = hashed
-		keep := files[0]
-		for _, file := range files {
-			if slices.Equal(file.fullPath(), source.fullPath()) {
-				keep = file
-				break
-			}
-		}
-		for _, file := range files {
-			if file == keep {
-				if !slices.Equal(file.fullPath(), source.fullPath()) {
-					app.clearPath(archive, source.fullPath())
-					archive.deleteFile(file)
-					clone := source.clone()
-					folder := archive.findFile(source.path())
-					folder.children = append(folder.children, clone)
-					clone.parent = folder
-					folder.sorted = false
-					app.fs.Rename(archive.rootPath, filepath.Join(file.fullPath()...), filepath.Join(clone.fullPath()...))
-				}
-			} else {
-				archive.deleteFile(file)
-				app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
-			}
-		}
 	}
 }
 
