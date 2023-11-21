@@ -152,8 +152,11 @@ func (app *appState) folderView(b *builder) {
 		if i >= lines {
 			break
 		}
-
-		b.style(fileStyle(file).Reverse(folder.selectedIdx == folder.offsetIdx+i))
+		style := fileStyle(file)
+		if folder.selectedIdx == folder.offsetIdx+i {
+			style = style.Background(tcell.Color20)
+		}
+		b.style(style)
 		b.state(file, width(11))
 		if file.folder == nil {
 			b.text("   ")

@@ -49,7 +49,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))
 		file.state = hashed
 		file.progress = file.size
-		app.analyze()
 
 	case fs.Renamed, fs.Deleted:
 		// Do nothing

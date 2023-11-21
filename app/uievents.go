@@ -91,10 +91,10 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 
 	case "Ctrl+R":
 		folder := app.curArchive.curFolder
-		app.resolve(app.curArciveIdx(), folder.children[folder.selectedIdx])
+		app.resolve(app.curArchiveIdx(), folder.children[folder.selectedIdx])
 
 	case "Ctrl+A":
-		app.resolve(app.curArciveIdx(), app.curArchive.curFolder)
+		app.resolve(app.curArchiveIdx(), app.curArchive.curFolder)
 
 	case "Tab":
 		(&tabState{app: app}).tab()
@@ -104,7 +104,7 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 
 	case "Backspace2": // Ctrl+Delete
 		folder := app.curArchive.curFolder
-		app.delete(app.curArciveIdx(), folder.children[folder.selectedIdx])
+		app.delete(app.curArchiveIdx(), folder.children[folder.selectedIdx])
 
 	case "F10":
 		// TODO Switch Debug On/Off
@@ -244,8 +244,11 @@ func (app *appState) resolve(sourceArcIdx int, source *file) {
 	}
 
 	path := source.fullPath()
-	roots := make([]string, 0, len(app.archives))
-	for _, archive := range app.archives {
+	archiveIndices := []int{}
+	for archiveIdx, archive := range app.archives {
+		if archiveIdx == sourceArcIdx {
+			continue
+		}
 		otherFile := archive.findFile(path)
 		if otherFile != nil && otherFile.hash == source.hash {
 			continue
@@ -270,23 +273,29 @@ func (app *appState) resolve(sourceArcIdx int, source *file) {
 		})
 
 		if !renamed {
-			roots = append(roots, archive.rootPath)
+			archiveIndices = append(archiveIndices, archiveIdx)
 		}
 	}
 
-	if len(roots) > 0 {
-		source.state = pending
-		for _, newRoot := range roots {
-			archive := app.archive(newRoot)
+	if len(archiveIndices) > 0 {
+		for _, archiveIdx := range archiveIndices {
+			archive := app.archives[archiveIdx]
 			app.clearPath(archive, source.fullPath())
 			clone := source.clone()
-			folder := archive.findFile(source.path())
+			folder := archive.getFile(source.path())
 			folder.children = append(folder.children, clone)
 			folder.sorted = false
 			clone.parent = folder
 			clone.state = hashed
 			source.state = pending
+			source.counts[archiveIdx]++
 		}
+
+		roots := make([]string, len(archiveIndices))
+		for i := range archiveIndices {
+			roots[i] = app.archives[archiveIndices[i]].rootPath
+		}
+
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
 	}
 }

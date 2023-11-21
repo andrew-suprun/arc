@@ -102,7 +102,7 @@ func (app *appState) archive(root string) *archive {
 	return nil
 }
 
-func (app *appState) curArciveIdx() int {
+func (app *appState) curArchiveIdx() int {
 	for i := range app.archives {
 		if app.curArchive == app.archives[i] {
 			return i
