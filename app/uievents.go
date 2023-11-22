@@ -291,29 +291,16 @@ func (app *appState) resolve(source *file) {
 }
 
 func (app *appState) delete(source *file) {
-	if source.state != divergent && source.folder != nil {
+	if source.folder != nil {
 		return
 	}
-
-	sameHash := make([][]*file, len(app.archives))
-	for arcIdx, archive := range app.archives {
-		archive.rootFolder.walk(func(_ int, child *file) handleResult {
-			if child.hash == source.hash {
-				sameHash[arcIdx] = append(sameHash[arcIdx], child)
-			}
-			return advance
-		})
-	}
-
-	if len(sameHash[0]) > 0 {
-		return
-	}
-
-	for arcIdx, files := range sameHash {
-		archive := app.archives[arcIdx]
-		for _, file := range files {
+	path := source.fullPath()
+	for _, archive := range app.archives {
+		file := archive.getFile(path)
+		if file != nil && file.hash == source.hash {
 			archive.deleteFile(file)
 			app.fs.Delete(filepath.Join(archive.rootPath, filepath.Join(file.fullPath()...)))
+			file.counts[archive.idx]--
 		}
 	}
 }

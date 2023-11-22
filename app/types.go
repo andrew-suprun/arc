@@ -178,6 +178,9 @@ func (folder *file) getSelected() *file {
 			}
 		}
 	}
+	if len(folder.children) == 0 {
+		return nil
+	}
 	folder.selected = folder.children[folder.selectedIdx]
 	return folder.selected
 }
