@@ -9,6 +9,9 @@ import (
 )
 
 func (f *fsys) copyFile(copy copy) {
+	f.lc.Started()
+	defer f.lc.Done()
+
 	defer func() {
 		f.events <- fs.Copied{
 			Path:     copy.path,
@@ -101,7 +104,7 @@ func (f *fsys) reader(copy copy, eventChans []chan event) {
 	}
 
 	var n int
-	for err != io.EOF && !f.commands.Closed() {
+	for err != io.EOF && !f.lc.ShoudStop() {
 		buf := make([]byte, 1024*1024)
 		n, err = sourceFile.Read(buf)
 		if err != nil && err != io.EOF {
@@ -128,7 +131,7 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 	defer func() {
 		if file != nil {
 			file.Close()
-			if f.commands.Closed() {
+			if f.lc.ShoudStop() {
 				os.Remove(filePath)
 			}
 			os.Chtimes(to, time.Now(), modTime)
@@ -137,7 +140,8 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 	}()
 
 	for cmd := range cmdChan {
-		if f.commands.Closed() {
+		if f.lc.ShoudStop() {
+			// TODO: remove partly written file
 			return
 		}
 

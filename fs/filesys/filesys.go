@@ -2,6 +2,7 @@ package filesys
 
 import (
 	"arc/fs"
+	"arc/lifecycle"
 	"arc/log"
 	"arc/stream"
 	iofs "io/fs"
@@ -15,6 +16,7 @@ import (
 type fsys struct {
 	commands *stream.Stream[command]
 	events   chan fs.Event
+	lc       *lifecycle.Lifecycle
 }
 
 type command interface {
@@ -47,6 +49,7 @@ func NewFS() fs.FS {
 	fs := &fsys{
 		commands: stream.NewStream[command]("commands"),
 		events:   make(chan fs.Event, 256),
+		lc:       lifecycle.New(),
 	}
 	go fs.run()
 	return fs
@@ -93,8 +96,8 @@ func AbsPath(path string) (string, error) {
 
 func (f *fsys) run() {
 	for {
-		commands, closed := f.commands.Pull()
-		if closed {
+		commands, _ := f.commands.Pull()
+		if f.lc.ShoudStop() {
 			break
 		}
 		for _, command := range commands {
@@ -110,6 +113,7 @@ func (f *fsys) run() {
 			}
 		}
 	}
+	f.lc.Stop()
 	f.events <- fs.Quit{}
 }
 

@@ -28,17 +28,21 @@ type meta struct {
 }
 
 func (s *fsys) scanArchive(scan scan) {
+	s.lc.Started()
+	defer s.lc.Done()
+
 	defer func() {
 		s.events <- fs.ArchiveHashed{
 			Root: scan.root,
 		}
+
 	}()
 
 	metaSlice := []*meta{}
 	metaMap := map[uint64]*fs.FileMeta{}
 	fsys := os.DirFS(scan.root)
 	iofs.WalkDir(fsys, ".", func(path string, d iofs.DirEntry, err error) error {
-		if s.commands.Closed() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
+		if s.lc.ShoudStop() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
 
@@ -93,7 +97,7 @@ func (s *fsys) scanArchive(scan scan) {
 		if meta.file.Hash != "" {
 			continue
 		}
-		if s.commands.Closed() {
+		if s.lc.ShoudStop() {
 			return
 		}
 		meta.file.Hash = s.hashFile(scan.root, meta.file.Path)
@@ -179,7 +183,7 @@ func (s *fsys) hashFile(root, path string) string {
 	defer file.Close()
 
 	for {
-		if s.commands.Closed() {
+		if s.lc.ShoudStop() {
 			return ""
 		}
 
