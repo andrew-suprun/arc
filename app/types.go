@@ -28,6 +28,7 @@ type (
 	}
 
 	archive struct {
+		idx          int
 		rootPath     string
 		rootFolder   *file
 		curFolder    *file
@@ -35,6 +36,7 @@ type (
 	}
 
 	file struct {
+		archive  *archive
 		name     string
 		size     int
 		modTime  time.Time
@@ -50,6 +52,7 @@ type (
 
 	folder struct {
 		children      files
+		selected      *file
 		selectedIdx   int
 		offsetIdx     int
 		sortColumn    sortColumn
@@ -102,13 +105,14 @@ func (app *appState) archive(root string) *archive {
 	return nil
 }
 
-func (app *appState) curArchiveIdx() int {
-	for i := range app.archives {
-		if app.curArchive == app.archives[i] {
-			return i
-		}
-	}
-	panic("Invalid current archive")
+func (app *appState) getSelected() *file {
+	return app.curArchive.curFolder.getSelected()
+}
+
+func (app *appState) setSelected(file *file) {
+	app.curArchive = file.archive
+	app.curArchive.curFolder = file.archive.findFile(file.path())
+	app.curArchive.curFolder.selected = file
 }
 
 func (f *file) String() string {
@@ -160,13 +164,32 @@ func (f *file) findChild(name string) *file {
 	return nil
 }
 
+func (folder *file) getSelected() *file {
+	if folder.selectedIdx >= len(folder.children) {
+		folder.selectedIdx = len(folder.children) - 1
+	}
+	if folder.selectedIdx < 0 {
+		folder.selectedIdx = 0
+	}
+	if folder.selected != nil {
+		for i, child := range folder.children {
+			if child == folder.selected {
+				folder.selectedIdx = i
+			}
+		}
+	}
+	folder.selected = folder.children[folder.selectedIdx]
+	return folder.selected
+}
+
 func (parent *file) getChild(sub string) *file {
 	child := parent.findChild(sub)
 	if child == nil {
 		child = &file{
-			name:   sub,
-			state:  scanned,
-			parent: parent,
+			archive: parent.archive,
+			name:    sub,
+			state:   scanned,
+			parent:  parent,
 			folder: &folder{
 				sortAscending: []bool{true, true, true},
 			},
@@ -196,8 +219,9 @@ func (arc *archive) getFile(path []string) *file {
 	return folder
 }
 
-func (f *file) clone() *file {
+func (f *file) clone(archive *archive) *file {
 	return &file{
+		archive:  archive,
 		name:     f.name,
 		size:     f.size,
 		modTime:  f.modTime,

@@ -14,6 +14,7 @@ func (app *appState) handleFsEvent(event fs.Event) {
 			archive := app.archive(meta.Root)
 			path, name := parseName(meta.Path)
 			incoming := &file{
+				archive: archive,
 				name:    name,
 				size:    meta.Size,
 				modTime: meta.ModTime,

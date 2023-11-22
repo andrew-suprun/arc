@@ -49,12 +49,9 @@ func (app *appState) render(screen tcell.Screen) {
 	if folder.offsetIdx < 0 {
 		folder.offsetIdx = 0
 	}
-	if folder.selectedIdx >= entries {
-		folder.selectedIdx = entries - 1
-	}
-	if folder.selectedIdx < 0 {
-		folder.selectedIdx = 0
-	}
+
+	folder.getSelected()
+
 	if app.makeSelectedVisible {
 		if folder.offsetIdx <= folder.selectedIdx-lines {
 			folder.offsetIdx = folder.selectedIdx + 1 - lines

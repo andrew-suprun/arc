@@ -35,33 +35,44 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 	log.Debug("handleKeyEvent", "key", event.Name())
 	switch event.Name() {
 	case "Up":
-		app.curArchive.curFolder.selectedIdx--
+		folder := app.curArchive.curFolder
+		folder.selectedIdx--
+		folder.selected = nil
 		app.makeSelectedVisible = true
 
 	case "Down":
-		app.curArchive.curFolder.selectedIdx++
+		folder := app.curArchive.curFolder
+		folder.selectedIdx++
+		folder.selected = nil
 		app.makeSelectedVisible = true
 
 	case "PgUp":
-		app.curArchive.curFolder.selectedIdx -= app.screenHeight - 4
-		app.curArchive.curFolder.offsetIdx -= app.screenHeight - 4
+		folder := app.curArchive.curFolder
+		folder.selectedIdx -= app.screenHeight - 4
+		folder.selected = nil
+		folder.offsetIdx -= app.screenHeight - 4
 
 	case "PgDn":
-		app.curArchive.curFolder.selectedIdx += app.screenHeight - 4
-		app.curArchive.curFolder.offsetIdx += app.screenHeight - 4
+		folder := app.curArchive.curFolder
+		folder.selectedIdx += app.screenHeight - 4
+		folder.selected = nil
+		folder.offsetIdx += app.screenHeight - 4
 
 	case "Home":
-		app.curArchive.curFolder.selectedIdx = 0
+		folder := app.curArchive.curFolder
+		folder.selectedIdx = 0
+		folder.selected = nil
 		app.makeSelectedVisible = true
 
 	case "End":
 		folder := app.curArchive.curFolder
 		folder.selectedIdx = len(folder.children) - 1
+		folder.selected = nil
 		app.makeSelectedVisible = true
 
 	case "Right":
 		folder := app.curArchive.curFolder
-		child := folder.children[folder.selectedIdx]
+		child := folder.getSelected()
 		if child.folder != nil {
 			app.curArchive.curFolder = child
 		}
@@ -75,14 +86,14 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 	case "Ctrl+F":
 		archive := app.curArchive
 		folder := archive.curFolder
-		name := folder.children[folder.selectedIdx].name
+		name := folder.getSelected().name
 		path := filepath.Join(archive.rootPath, filepath.Join(folder.fullPath()...), name)
 		exec.Command("open", "-R", path).Start()
 
 	case "Enter":
 		archive := app.curArchive
 		folder := archive.curFolder
-		name := folder.children[folder.selectedIdx].name
+		name := folder.getSelected().name
 		path := filepath.Join(archive.rootPath, filepath.Join(folder.fullPath()...), name)
 		exec.Command("open", path).Start()
 
@@ -90,21 +101,28 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		app.fs.Quit()
 
 	case "Ctrl+R":
-		folder := app.curArchive.curFolder
-		app.resolve(app.curArchiveIdx(), folder.children[folder.selectedIdx])
+		app.resolve(app.curArchive.curFolder.getSelected())
 
 	case "Ctrl+A":
-		app.resolve(app.curArchiveIdx(), app.curArchive.curFolder)
+		app.resolve(app.curArchive.curFolder)
 
 	case "Tab":
-		(&tabState{app: app}).tab()
+		_, next := app.findNeighbours()
+		if next != nil {
+			app.setSelected(next)
+			app.makeSelectedVisible = true
+		}
 
 	case "Backtab":
-		// TODO
+		prev, _ := app.findNeighbours()
+		if prev != nil {
+			app.setSelected(prev)
+			app.makeSelectedVisible = true
+		}
 
 	case "Backspace2": // Ctrl+Delete
 		folder := app.curArchive.curFolder
-		app.delete(app.curArchiveIdx(), folder.children[folder.selectedIdx])
+		app.delete(folder.getSelected())
 
 	case "F10":
 		// TODO Switch Debug On/Off
@@ -166,6 +184,7 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 		idx := folder.offsetIdx + y - 3
 		if idx < len(folder.children) {
 			folder.selectedIdx = folder.offsetIdx + y - 3
+			folder.selected = nil
 		}
 		if app.lastX == x && app.lastY == y && time.Since(app.lastClickTime).Milliseconds() < 500 {
 			entry := folder.children[curSelectedIdx]
@@ -180,73 +199,45 @@ func (app *appState) handleMouseEvent(event *tcell.EventMouse) {
 	}
 }
 
-type tabState struct {
-	app           *appState
-	curArchive    *archive
-	curFile       *file
-	firstArchive  *archive
-	firstFolder   *file
-	firstFileIdx  int
-	foundSameFile bool
-	done          bool
-}
-
-func (ts *tabState) tab() {
-	folder := ts.app.curArchive.curFolder
-	ts.curFile = folder.children[folder.selectedIdx]
-	if ts.curFile.folder != nil {
-		return
-	}
-	for _, ts.curArchive = range ts.app.archives {
-		if ts.curArchive.rootFolder.walk(ts.handle) == stop {
+func (app *appState) findNeighbours() (prev, next *file) {
+	var foundSameFile bool
+	cur := app.getSelected()
+	for _, archive := range app.archives {
+		if archive.rootFolder.walk(func(_ int, f *file) handleResult {
+			if f.hash != cur.hash {
+				return advance
+			}
+			if f == cur {
+				foundSameFile = true
+			} else if foundSameFile {
+				next = f
+				return stop
+			} else {
+				prev = f
+			}
+			return advance
+		}) == stop {
 			break
 		}
 	}
-	if !ts.done {
-		ts.app.curArchive = ts.firstArchive
-		ts.app.curArchive.curFolder = ts.firstFolder
-		ts.app.curArchive.curFolder.selectedIdx = ts.firstFileIdx
-		ts.app.makeSelectedVisible = true
-	}
+	return prev, next
 }
 
-func (ts *tabState) handle(idx int, f *file) handleResult {
-	if ts.curFile.hash == f.hash {
-		if ts.foundSameFile {
-			ts.app.curArchive = ts.curArchive
-			ts.app.curArchive.curFolder = f.parent
-			f.parent.selectedIdx = idx
-			ts.app.makeSelectedVisible = true
-			ts.done = true
-			return stop
-		}
-		if ts.firstArchive == nil {
-			ts.firstArchive = ts.curArchive
-			ts.firstFolder = f.parent
-			ts.firstFileIdx = idx
-		}
-		if f == ts.curFile {
-			ts.foundSameFile = true
-		}
-	}
-	return advance
-}
-
-func (app *appState) resolve(sourceArcIdx int, source *file) {
+func (app *appState) resolve(source *file) {
 	if source.state != divergent {
 		return
 	}
 	if source.folder != nil {
 		for _, child := range source.children {
-			app.resolve(sourceArcIdx, child)
+			app.resolve(child)
 		}
 		return
 	}
 
 	path := source.fullPath()
-	archiveIndices := []int{}
-	for archiveIdx, archive := range app.archives {
-		if archiveIdx == sourceArcIdx {
+	archives := []*archive{}
+	for _, archive := range app.archives {
+		if archive == source.archive {
 			continue
 		}
 		otherFile := archive.findFile(path)
@@ -259,7 +250,7 @@ func (app *appState) resolve(sourceArcIdx int, source *file) {
 		archive.rootFolder.walk(func(_ int, child *file) handleResult {
 			if child.hash == source.hash && child.state == divergent {
 				archive.deleteFile(child)
-				clone := source.clone()
+				clone := source.clone(archive)
 				clone.state = hashed
 				folder := archive.getFile(source.path())
 				folder.children = append(folder.children, clone)
@@ -273,34 +264,33 @@ func (app *appState) resolve(sourceArcIdx int, source *file) {
 		})
 
 		if !renamed {
-			archiveIndices = append(archiveIndices, archiveIdx)
+			archives = append(archives, archive)
 		}
 	}
 
-	if len(archiveIndices) > 0 {
-		for _, archiveIdx := range archiveIndices {
-			archive := app.archives[archiveIdx]
+	if len(archives) > 0 {
+		for _, archive := range archives {
 			app.clearPath(archive, source.fullPath())
-			clone := source.clone()
+			clone := source.clone(archive)
 			folder := archive.getFile(source.path())
 			folder.children = append(folder.children, clone)
 			folder.sorted = false
 			clone.parent = folder
 			clone.state = hashed
 			source.state = pending
-			source.counts[archiveIdx]++
+			source.counts[archive.idx]++
 		}
 
-		roots := make([]string, len(archiveIndices))
-		for i := range archiveIndices {
-			roots[i] = app.archives[archiveIndices[i]].rootPath
+		roots := make([]string, len(archives))
+		for i := range archives {
+			roots[i] = archives[i].rootPath
 		}
 
 		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
 	}
 }
 
-func (app *appState) delete(sourceArcIdx int, source *file) {
+func (app *appState) delete(source *file) {
 	if source.state != divergent && source.folder != nil {
 		return
 	}

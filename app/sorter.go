@@ -13,7 +13,6 @@ func (app *appState) sort() {
 	}
 	folder.sorted = true
 
-	selected := folder.children[folder.selectedIdx]
 	entries := folder.children
 	switch folder.sortColumn {
 	case sortByName:
@@ -26,12 +25,7 @@ func (app *appState) sort() {
 	if !folder.sortAscending[folder.sortColumn] {
 		entries.reverse()
 	}
-	for idx, file := range folder.children {
-		if file == selected {
-			folder.selectedIdx = idx
-			app.makeSelectedVisible = true
-		}
-	}
+	app.makeSelectedVisible = true
 }
 
 func (e files) sortByName() {

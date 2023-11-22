@@ -21,14 +21,16 @@ func Run(roots []string, fsys fs.FS) {
 				sortAscending: []bool{true, true, true},
 			},
 		}
-		arc := &archive{
+		archive := &archive{
+			idx:        i,
 			rootPath:   root,
 			rootFolder: rootFolder,
 			curFolder:  rootFolder,
 		}
-		app.archives = append(app.archives, arc)
+		rootFolder.archive = archive
+		app.archives = append(app.archives, archive)
 		if i == 0 {
-			app.curArchive = arc
+			app.curArchive = archive
 		}
 
 		fsys.Scan(root)
