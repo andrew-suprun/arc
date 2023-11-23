@@ -177,14 +177,14 @@ func (app *appState) folderView(b *builder) {
 
 func fileStyle(file *file) tcell.Style {
 	if file.progress > 0 && file.progress < file.size {
-		return tcell.StyleDefault.Foreground(tcell.PaletteColor(195)).Background(tcell.PaletteColor(17))
+		return tcell.StyleDefault.Foreground(tcell.PaletteColor(51)).Background(tcell.PaletteColor(17))
 	}
 	fg := 231
 	switch file.state {
 	case scanned:
 		fg = 248
 	case inProgress:
-		fg = 195
+		fg = 51
 	case pending:
 		fg = 214
 	case divergent:

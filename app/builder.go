@@ -70,7 +70,7 @@ func (b *builder) state(file *file, config config) {
 	if file.progress > 0 && file.progress < file.size {
 		value := float64(file.progress) / float64(file.size)
 		b.text(" ")
-		b.progressBar(value, width(10), b.curStyle.Background(tcell.Color33))
+		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
 		return
 	}
 	showCounts := false
