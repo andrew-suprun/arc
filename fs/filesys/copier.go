@@ -103,6 +103,8 @@ func (f *fsys) reader(copy copy, eventChans []chan event) {
 		return
 	}
 
+	defer sourceFile.Close()
+
 	var n int
 	for err != io.EOF && !f.lc.ShoudStop() {
 		buf := make([]byte, 1024*1024)
@@ -131,10 +133,10 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 	defer func() {
 		if file != nil {
 			file.Close()
+			os.Chtimes(to, time.Now(), modTime)
 			if f.lc.ShoudStop() {
 				os.Remove(filePath)
 			}
-			os.Chtimes(to, time.Now(), modTime)
 		}
 		close(eventChan)
 	}()
