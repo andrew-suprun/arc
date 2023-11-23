@@ -20,11 +20,13 @@ type builder struct {
 type config interface{}
 type width int
 type flex int
+type handler func(offset, width width)
 
 type field struct {
 	renderer
 	width
 	flex
+	handler
 	style *tcell.Style
 }
 
@@ -53,6 +55,8 @@ func (f *field) config(configs []config) {
 			f.flex = config
 		case tcell.Style:
 			f.style = &config
+		case func(offset, width width):
+			f.handler = config
 		}
 	}
 }
@@ -155,6 +159,9 @@ func (b *builder) newLine() {
 	b.layout()
 	x := width(0)
 	for _, field := range b.fields {
+		if field.handler != nil {
+			field.handler(x, field.width)
+		}
 		style := b.curStyle
 		if field.style != nil {
 			style = *field.style
