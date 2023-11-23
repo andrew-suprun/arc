@@ -96,8 +96,8 @@ func AbsPath(path string) (string, error) {
 
 func (f *fsys) run() {
 	for {
-		commands, _ := f.commands.Pull()
-		if f.lc.ShoudStop() {
+		commands, closed := f.commands.Pull()
+		if closed {
 			break
 		}
 		for _, command := range commands {

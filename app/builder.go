@@ -20,13 +20,12 @@ type builder struct {
 type config interface{}
 type width int
 type flex int
-type handler func(offset, width width)
 
 type field struct {
 	renderer
 	width
 	flex
-	handler
+	style *tcell.Style
 }
 
 func (b *builder) style(style tcell.Style) {
@@ -52,8 +51,8 @@ func (f *field) config(configs []config) {
 			f.width = config
 		case flex:
 			f.flex = config
-		case func(offset, width width):
-			f.handler = config
+		case tcell.Style:
+			f.style = &config
 		}
 	}
 }
@@ -71,7 +70,7 @@ func (b *builder) state(file *file, config config) {
 	if file.progress > 0 && file.progress < file.size {
 		value := float64(file.progress) / float64(file.size)
 		b.text(" ")
-		b.progressBar(value, width(10))
+		b.progressBar(value, width(10), b.curStyle.Background(tcell.Color33))
 		return
 	}
 	showCounts := false
@@ -156,11 +155,12 @@ func (b *builder) newLine() {
 	b.layout()
 	x := width(0)
 	for _, field := range b.fields {
-		if field.handler != nil {
-			field.handler(x, field.width)
+		style := b.curStyle
+		if field.style != nil {
+			style = *field.style
 		}
 		for i, ch := range field.runes(field.width) {
-			b.screen.SetContent(int(x)+i, b.line, ch, nil, b.curStyle)
+			b.screen.SetContent(int(x)+i, b.line, ch, nil, style)
 		}
 		x += field.width
 	}
