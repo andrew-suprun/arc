@@ -100,7 +100,7 @@ func (s *fsys) scanArchive(scan scan) {
 		if s.lc.ShoudStop() {
 			return
 		}
-		meta.file.Hash = s.hashFile(scan.root, meta.file.Path)
+		meta.file.Hash = s.hashFile(meta.file)
 		s.events <- fs.FileHashed{
 			Root: scan.root,
 			Path: meta.file.Path,
@@ -169,53 +169,44 @@ func (s *fsys) storeMeta(root string, metas []*meta) error {
 	return err
 }
 
-func (s *fsys) hashFile(root, path string) string {
-	hash := sha256.New()
-	buf := make([]byte, 1024*1024)
-	hashed := 0
+const bufSize = 256 * 1024
 
-	fsys := os.DirFS(root)
-	file, err := fsys.Open(path)
+func (s *fsys) hashFile(meta *fs.FileMeta) string {
+	hash := sha256.New()
+	buf := make([]byte, bufSize)
+	path := filepath.Join(meta.Root, meta.Path)
+
+	file, err := os.Open(path)
 	if err != nil {
-		s.events <- fs.Error{Path: filepath.Join(root, path), Error: err}
+		s.events <- fs.Error{Path: path, Error: err}
 		return ""
 	}
 	defer file.Close()
 
-	for {
-		if s.lc.ShoudStop() {
-			return ""
-		}
+	offset := 0
+	if meta.Size > bufSize {
+		offset = meta.Size - bufSize
+	}
+	nr, er := file.ReadAt(buf, int64(offset))
 
-		nr, er := file.Read(buf)
-		if nr > 0 {
-			nw, ew := hash.Write(buf[0:nr])
-			if ew != nil {
-				if err != nil {
-					s.events <- fs.Error{Path: filepath.Join(root, path), Error: err}
-					return ""
-				}
-			}
-			if nr != nw {
-				s.events <- fs.Error{Path: filepath.Join(root, path), Error: err}
+	if nr > 0 {
+		nw, ew := hash.Write(buf[0:nr])
+		if ew != nil {
+			if err != nil {
+				s.events <- fs.Error{Path: path, Error: err}
 				return ""
 			}
 		}
-
-		if er == io.EOF {
-			break
-		}
-		if er != nil {
-			s.events <- fs.Error{Path: filepath.Join(root, path), Error: err}
+		if nr != nw {
+			s.events <- fs.Error{Path: path, Error: err}
 			return ""
 		}
-
-		hashed += nr
-		s.events <- fs.Progress{
-			Root:     root,
-			Path:     path,
-			Progress: hashed,
-		}
 	}
+
+	if er != nil && er != io.EOF {
+		s.events <- fs.Error{Path: path, Error: err}
+		return ""
+	}
+
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
 }
