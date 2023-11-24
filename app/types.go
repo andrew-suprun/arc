@@ -2,6 +2,7 @@ package app
 
 import (
 	"arc/fs"
+	"arc/lifecycle"
 	"fmt"
 	"slices"
 	"strings"
@@ -10,6 +11,8 @@ import (
 
 type (
 	appState struct {
+		lc *lifecycle.Lifecycle
+
 		fs         fs.FS
 		archives   []*archive
 		curArchive *archive
@@ -24,7 +27,6 @@ type (
 
 		makeSelectedVisible bool
 		sync                bool
-		quit                bool
 	}
 
 	archive struct {

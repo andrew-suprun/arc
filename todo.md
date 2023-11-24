@@ -1,4 +1,4 @@
-* change background for progress bar
+* fix progress bar for folders while copying 
 * status line
 * search/filter
 * copy/paste

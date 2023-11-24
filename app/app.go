@@ -2,13 +2,15 @@ package app
 
 import (
 	"arc/fs"
+	"arc/lifecycle"
 )
 
-func Run(roots []string, fsys fs.FS) {
+func Run(roots []string, lc *lifecycle.Lifecycle, fsys fs.FS) {
 	screen := initUi()
 	defer deinitUi(screen)
 
 	app := &appState{
+		lc: lc,
 		fs: fsys,
 	}
 	uiEvents := newUiEvents()
@@ -36,7 +38,7 @@ func Run(roots []string, fsys fs.FS) {
 		fsys.Scan(root)
 	}
 
-	for {
+	for !app.lc.ShoudStop() {
 		select {
 		case event := <-fsys.Events():
 			app.handleFsEvent(event)
@@ -53,9 +55,6 @@ func Run(roots []string, fsys fs.FS) {
 			default:
 				break loop
 			}
-		}
-		if app.quit {
-			break
 		}
 		app.render(screen)
 	}

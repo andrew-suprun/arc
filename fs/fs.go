@@ -58,8 +58,6 @@ type (
 		Path string
 	}
 
-	Quit struct{}
-
 	Error struct {
 		Path  string
 		Error error
@@ -73,5 +71,4 @@ func (ArchiveHashed) event() {}
 func (Copied) event()        {}
 func (Renamed) event()       {}
 func (Deleted) event()       {}
-func (Quit) event()          {}
 func (Error) event()         {}

@@ -5,6 +5,7 @@ import (
 	"arc/fs"
 	"arc/fs/filesys"
 	"arc/fs/mockfs"
+	"arc/lifecycle"
 	"arc/log"
 	"os"
 )
@@ -13,10 +14,11 @@ func main() {
 	log.SetLogger("log-arc.log")
 	defer log.CloseLogger()
 
+	var lc = lifecycle.New()
 	var paths []string
 	var fs fs.FS
 	if len(os.Args) > 1 && (os.Args[1] == "-sim" || os.Args[1] == "-sim2") {
-		fs = mockfs.NewFS(os.Args[1] == "-sim")
+		fs = mockfs.NewFS(lc, os.Args[1] == "-sim")
 		paths = []string{"origin", "copy 1", "copy 2"}
 	} else {
 		paths = make([]string, len(os.Args)-1)
@@ -28,8 +30,8 @@ func main() {
 				panic(err)
 			}
 		}
-		fs = filesys.NewFS()
+		fs = filesys.NewFS(lc)
 	}
 
-	app.Run(paths, fs)
+	app.Run(paths, lc, fs)
 }

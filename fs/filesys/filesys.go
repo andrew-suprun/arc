@@ -45,11 +45,11 @@ func (copy) command()   {}
 func (rename) command() {}
 func (delete) command() {}
 
-func NewFS() fs.FS {
+func NewFS(lc *lifecycle.Lifecycle) fs.FS {
 	fs := &fsys{
 		commands: stream.NewStream[command]("commands"),
 		events:   make(chan fs.Event, 256),
-		lc:       lifecycle.New(),
+		lc:       lc,
 	}
 	go fs.run()
 	return fs
@@ -77,6 +77,7 @@ func (fs *fsys) Delete(path string) {
 
 func (fs *fsys) Quit() {
 	fs.commands.Close()
+	fs.lc.Stop()
 }
 
 func AbsPath(path string) (string, error) {
@@ -96,11 +97,10 @@ func AbsPath(path string) (string, error) {
 
 func (f *fsys) run() {
 	for {
-		commands, closed := f.commands.Pull()
-		if closed {
-			break
-		}
-		for _, command := range commands {
+		for _, command := range f.commands.Pull() {
+			if f.lc.ShoudStop() {
+				return
+			}
 			switch cmd := command.(type) {
 			case scan:
 				go f.scanArchive(cmd)
@@ -113,8 +113,6 @@ func (f *fsys) run() {
 			}
 		}
 	}
-	f.lc.Stop()
-	f.events <- fs.Quit{}
 }
 
 func (f *fsys) renameFile(rename rename) {

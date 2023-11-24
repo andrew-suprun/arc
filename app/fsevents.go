@@ -54,9 +54,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 	case fs.Renamed, fs.Deleted:
 		// Do nothing
 
-	case fs.Quit:
-		app.quit = true
-
 	default:
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
 		panic(event)

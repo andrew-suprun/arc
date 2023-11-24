@@ -28,7 +28,7 @@ func (s *Stream[T]) Push(msg T) {
 	s.Cond.Signal()
 }
 
-func (s *Stream[T]) Pull() ([]T, bool) {
+func (s *Stream[T]) Pull() []T {
 	for {
 		s.Cond.L.Lock()
 		if len(s.elements) == 0 && !s.closed {
@@ -38,19 +38,18 @@ func (s *Stream[T]) Pull() ([]T, bool) {
 		} else {
 			msgs := s.elements
 			s.elements = []T{}
-			closed := s.closed
 			s.Cond.L.Unlock()
-			return msgs, closed
+			return msgs
 		}
 	}
 }
 
-func (s *Stream[T]) TryPull() ([]T, bool) {
+func (s *Stream[T]) TryPull() []T {
 	s.Cond.L.Lock()
 	defer s.Cond.L.Unlock()
 	msgs := s.elements
 	s.elements = []T{}
-	return msgs, s.closed
+	return msgs
 }
 
 func (s *Stream[T]) Close() {

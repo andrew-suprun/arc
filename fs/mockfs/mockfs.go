@@ -2,6 +2,7 @@ package mockfs
 
 import (
 	"arc/fs"
+	"arc/lifecycle"
 	"arc/log"
 	"arc/stream"
 	"cmp"
@@ -9,15 +10,14 @@ import (
 	"os"
 	"slices"
 	"strconv"
-	"sync/atomic"
 	"time"
 )
 
 type fsys struct {
+	lc       *lifecycle.Lifecycle
 	scan     bool
 	commands *stream.Stream[command]
 	events   chan fs.Event
-	quit     atomic.Bool
 }
 
 type command interface {
@@ -46,8 +46,9 @@ func (copy) command()   {}
 func (rename) command() {}
 func (delete) command() {}
 
-func NewFS(scan bool) fs.FS {
+func NewFS(lc *lifecycle.Lifecycle, scan bool) fs.FS {
 	fs := &fsys{
+		lc:       lc,
 		scan:     scan,
 		commands: stream.NewStream[command]("commands"),
 		events:   make(chan fs.Event, 256),
@@ -77,14 +78,16 @@ func (fs *fsys) Delete(path string) {
 }
 
 func (f *fsys) Quit() {
-	f.quit.Store(true)
-	f.events <- fs.Quit{}
+	f.commands.Close()
+	f.lc.Stop()
 }
 
 func (f *fsys) run() {
-	for !f.quit.Load() {
-		commands, _ := f.commands.Pull()
-		for _, command := range commands {
+	for {
+		for _, command := range f.commands.Pull() {
+			if f.lc.ShoudStop() {
+				return
+			}
 			switch cmd := command.(type) {
 			case scan:
 				f.scanArchive(cmd)
@@ -102,13 +105,13 @@ func (f *fsys) run() {
 func (f *fsys) scanArchive(scan scan) {
 	f.events <- archives[scan.root]
 	for _, file := range archives[scan.root] {
-		if f.quit.Load() {
+		if f.lc.ShoudStop() {
 			return
 		}
 
 		if f.scan {
 			for progress := 0; progress < file.Size; progress += 10000000 {
-				if f.quit.Load() {
+				if f.lc.ShoudStop() {
 					return
 				}
 				f.events <- fs.Progress{
@@ -139,7 +142,7 @@ func (f *fsys) copyFile(copy copy) {
 		}
 	}
 	for progress := 0; progress < file.Size; progress += 100000 {
-		if f.quit.Load() {
+		if f.lc.ShoudStop() {
 			return
 		}
 		f.events <- fs.Progress{
