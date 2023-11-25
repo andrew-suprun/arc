@@ -44,6 +44,7 @@ type (
 		size    int
 		modTime time.Time
 		hash    string
+		copying int
 		copied  int
 		state   fileState
 		parent  *file
@@ -90,8 +91,9 @@ const (
 const (
 	scanned fileState = iota
 	hashed
-	inProgress
 	pending
+	copying
+	copied
 	duplicate
 	divergent
 )
@@ -146,12 +148,16 @@ func (s fileState) String() string {
 	switch s {
 	case scanned:
 		return "scanned"
-	case inProgress:
-		return "inProgress"
 	case hashed:
 		return "hashed"
 	case pending:
 		return "pending"
+	case copying:
+		return "copying"
+	case copied:
+		return "copied"
+	case duplicate:
+		return "duplicate"
 	case divergent:
 		return "divergent"
 	}
@@ -270,6 +276,7 @@ func (folder *file) updateMetas() {
 	folder.size = 0
 	folder.modTime = time.Time{}
 	folder.state = scanned
+	folder.copying = 0
 	folder.copied = 0
 	folder.nFiles = 0
 	folder.nHashed = 0
@@ -297,6 +304,12 @@ func (folder *file) updateMeta(meta *file) {
 	}
 	if folder.modTime.Before(meta.modTime) {
 		folder.modTime = meta.modTime
+	}
+	if meta.state == copying {
+		folder.copied += meta.copied
+		if meta.state == pending || meta.state == copied {
+			folder.copying += meta.size
+		}
 	}
 	folder.state = max(folder.state, meta.state)
 }

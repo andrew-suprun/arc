@@ -37,8 +37,8 @@ func (app *appState) handleFsEvent(event fs.Event) {
 
 	case fs.CopyProgress:
 		file := app.archive(event.Root).findFile(parsePath(event.Path))
+		file.state = copying
 		file.copied = event.Copyed
-		file.state = inProgress
 
 	case fs.ArchiveHashed:
 		app.archive(event.Root).archiveState = archiveHashed
@@ -46,7 +46,7 @@ func (app *appState) handleFsEvent(event fs.Event) {
 
 	case fs.Copied:
 		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))
-		file.state = hashed
+		file.state = copied
 		file.copied = file.size
 		app.analyze()
 
@@ -67,8 +67,12 @@ func (app *appState) analyze() {
 	}
 
 	countsByHash := map[string][]int{}
+	copyingInProgress := false
 	for i, arc := range app.archives {
 		arc.rootFolder.walk(func(_ int, file *file) handleResult {
+			if file.state == pending || file.state == copying {
+				copyingInProgress = true
+			}
 			if file.state != pending {
 				if file.hash == "" {
 					file.state = scanned
@@ -96,8 +100,12 @@ func (app *appState) analyze() {
 			return advance
 		})
 	}
+
 	for i, arc := range app.archives {
 		arc.rootFolder.walk(func(_ int, file *file) handleResult {
+			if !copyingInProgress && file.state == copied {
+				file.state = hashed
+			}
 			if file.state == divergent {
 				return advance
 			}

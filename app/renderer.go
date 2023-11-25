@@ -183,7 +183,7 @@ func fileStyle(file *file) tcell.Style {
 	switch file.state {
 	case scanned:
 		fg = 248
-	case inProgress:
+	case copying:
 		fg = 51
 	case pending:
 		fg = 214

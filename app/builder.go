@@ -94,7 +94,7 @@ func (b *builder) state(file *file, config config) {
 		return
 	}
 	switch file.state {
-	case scanned, hashed, inProgress:
+	case scanned, hashed, copying:
 		b.text("", config)
 
 	case pending:

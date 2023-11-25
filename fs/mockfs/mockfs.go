@@ -223,6 +223,54 @@ func init() {
 		Hash:    "xxx",
 	})
 
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm1/aaa",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm1/aaa",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm1/bbb",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm1/bbb",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm1/ccc",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm1/ccc",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm2/aaa",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm2/aaa",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm2/bbb",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm2/bbb",
+	})
+
+	or = append(or, fs.FileMeta{
+		Root:    "origin",
+		Path:    "nnn/mmm2/ccc",
+		Size:    99900000,
+		ModTime: time.Now(),
+		Hash:    "nnn/mmm2/ccc",
+	})
+
 	c1 = append(c1, fs.FileMeta{
 		Root:    "copy 1",
 		Path:    "bbb",
