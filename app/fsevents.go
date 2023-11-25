@@ -23,7 +23,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 			}
 			if meta.Hash != "" {
 				incoming.state = hashed
-				incoming.progress = incoming.size
 			}
 			folder := archive.getFile(path)
 			folder.children = append(folder.children, incoming)
@@ -34,12 +33,11 @@ func (app *appState) handleFsEvent(event fs.Event) {
 	case fs.FileHashed:
 		file := app.archive(event.Root).findFile(parsePath(event.Path))
 		file.hash = event.Hash
-		file.progress = file.size
 		file.state = hashed
 
-	case fs.Progress:
+	case fs.CopyProgress:
 		file := app.archive(event.Root).findFile(parsePath(event.Path))
-		file.progress = event.Progress
+		file.copied = event.Copyed
 		file.state = inProgress
 
 	case fs.ArchiveHashed:
@@ -49,10 +47,11 @@ func (app *appState) handleFsEvent(event fs.Event) {
 	case fs.Copied:
 		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))
 		file.state = hashed
-		file.progress = file.size
+		file.copied = file.size
+		app.analyze()
 
 	case fs.Renamed, fs.Deleted:
-		// Do nothing
+		app.analyze()
 
 	default:
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
@@ -70,6 +69,13 @@ func (app *appState) analyze() {
 	countsByHash := map[string][]int{}
 	for i, arc := range app.archives {
 		arc.rootFolder.walk(func(_ int, file *file) handleResult {
+			if file.state != pending {
+				if file.hash == "" {
+					file.state = scanned
+				} else {
+					file.state = hashed
+				}
+			}
 			path := file.fullPath()
 			for j, otherArc := range app.archives {
 				if i == j {
@@ -87,6 +93,18 @@ func (app *appState) analyze() {
 				countsByHash[file.hash] = file.counts
 			}
 			file.counts[i]++
+			return advance
+		})
+	}
+	for i, arc := range app.archives {
+		arc.rootFolder.walk(func(_ int, file *file) handleResult {
+			if file.state == divergent {
+				return advance
+			}
+			counts := countsByHash[file.hash][i]
+			if counts > 1 {
+				file.state = duplicate
+			}
 			return advance
 		})
 	}

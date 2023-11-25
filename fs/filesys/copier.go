@@ -53,10 +53,10 @@ func (f *fsys) copyFile(copy copy) {
 		}
 		if reported < minCopied {
 			reported = minCopied
-			f.events <- fs.Progress{
-				Root:     copy.fromRoot,
-				Path:     copy.path,
-				Progress: reported,
+			f.events <- fs.CopyProgress{
+				Root:   copy.fromRoot,
+				Path:   copy.path,
+				Copyed: reported,
 			}
 		}
 		if !hasValue {
@@ -107,7 +107,7 @@ func (f *fsys) reader(copy copy, eventChans []chan event) {
 
 	var n int
 	for err != io.EOF && !f.lc.ShoudStop() {
-		buf := make([]byte, 1024*1024)
+		buf := make([]byte, bufSize)
 		n, err = sourceFile.Read(buf)
 		if err != nil && err != io.EOF {
 			f.events <- fs.Error{Path: copy.fromRoot, Error: err}

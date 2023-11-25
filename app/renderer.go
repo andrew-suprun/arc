@@ -176,7 +176,7 @@ func (app *appState) folderView(b *builder) {
 }
 
 func fileStyle(file *file) tcell.Style {
-	if file.progress > 0 && file.progress < file.size {
+	if file.copied > 0 && file.copied < file.size {
 		return tcell.StyleDefault.Foreground(tcell.PaletteColor(51)).Background(tcell.PaletteColor(17))
 	}
 	fg := 231

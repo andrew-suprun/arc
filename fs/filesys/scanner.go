@@ -169,8 +169,6 @@ func (s *fsys) storeMeta(root string, metas []*meta) error {
 	return err
 }
 
-const bufSize = 256 * 1024
-
 func (s *fsys) hashFile(meta *fs.FileMeta) string {
 	hash := sha256.New()
 	buf := make([]byte, bufSize)

@@ -3,6 +3,7 @@ package app
 import (
 	"arc/fs"
 	"arc/lifecycle"
+	"arc/log"
 	"fmt"
 	"slices"
 	"strings"
@@ -38,15 +39,15 @@ type (
 	}
 
 	file struct {
-		archive  *archive
-		name     string
-		size     int
-		modTime  time.Time
-		hash     string
-		progress int
-		state    fileState
-		parent   *file
-		counts   []int
+		archive *archive
+		name    string
+		size    int
+		modTime time.Time
+		hash    string
+		copied  int
+		state   fileState
+		parent  *file
+		counts  []int
 		*folder
 	}
 
@@ -55,6 +56,8 @@ type (
 	folder struct {
 		children      files
 		selected      *file
+		nFiles        int
+		nHashed       int
 		selectedIdx   int
 		offsetIdx     int
 		sortColumn    sortColumn
@@ -89,6 +92,7 @@ const (
 	hashed
 	inProgress
 	pending
+	duplicate
 	divergent
 )
 
@@ -131,8 +135,8 @@ func (f *file) String() string {
 	if f.hash != "" {
 		fmt.Fprintf(buf, ", hash: %q", f.hash)
 	}
-	if f.progress > 0 && f.progress < f.size {
-		fmt.Fprintf(buf, ", progress: %d", f.progress)
+	if f.copied > 0 && f.copied < f.size {
+		fmt.Fprintf(buf, ", copied: %d", f.copied)
 	}
 	buf.WriteRune('}')
 	return buf.String()
@@ -226,14 +230,14 @@ func (arc *archive) getFile(path []string) *file {
 
 func (f *file) clone(archive *archive) *file {
 	return &file{
-		archive:  archive,
-		name:     f.name,
-		size:     f.size,
-		modTime:  f.modTime,
-		hash:     f.hash,
-		progress: f.progress,
-		state:    f.state,
-		counts:   f.counts,
+		archive: archive,
+		name:    f.name,
+		size:    f.size,
+		modTime: f.modTime,
+		hash:    f.hash,
+		copied:  f.copied,
+		state:   f.state,
+		counts:  f.counts,
 	}
 }
 
@@ -266,22 +270,31 @@ func (folder *file) updateMetas() {
 	folder.size = 0
 	folder.modTime = time.Time{}
 	folder.state = scanned
-	folder.progress = 0
+	folder.copied = 0
+	folder.nFiles = 0
+	folder.nHashed = 0
 
 	for _, child := range folder.children {
 		if child.folder != nil {
 			child.updateMetas()
+			folder.nFiles += child.nFiles - 1
+			folder.nHashed += child.nHashed
 		}
 		folder.updateMeta(child)
 	}
 	if folder.size == 0 && folder.parent != nil {
 		folder.parent.deleteFile(folder)
 	}
+	log.Debug("metas", "folder", folder.fullPath(), "nFiles", folder.nFiles, "nHashed", folder.nHashed)
 }
 
 func (folder *file) updateMeta(meta *file) {
-	folder.progress += meta.progress
+	folder.copied += meta.copied
 	folder.size += meta.size
+	folder.nFiles++
+	if meta.hash != "" {
+		folder.nHashed++
+	}
 	if folder.modTime.Before(meta.modTime) {
 		folder.modTime = meta.modTime
 	}

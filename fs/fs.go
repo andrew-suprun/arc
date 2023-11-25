@@ -32,10 +32,10 @@ type (
 		Hash string
 	}
 
-	Progress struct {
-		Root     string
-		Path     string
-		Progress int
+	CopyProgress struct {
+		Root   string
+		Path   string
+		Copyed int
 	}
 
 	ArchiveHashed struct {
@@ -66,7 +66,7 @@ type (
 
 func (FileMetas) event()     {}
 func (FileHashed) event()    {}
-func (Progress) event()      {}
+func (CopyProgress) event()  {}
 func (ArchiveHashed) event() {}
 func (Copied) event()        {}
 func (Renamed) event()       {}

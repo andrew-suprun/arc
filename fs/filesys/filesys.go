@@ -45,6 +45,8 @@ func (copy) command()   {}
 func (rename) command() {}
 func (delete) command() {}
 
+const bufSize = 256 * 1024
+
 func NewFS(lc *lifecycle.Lifecycle) fs.FS {
 	fs := &fsys{
 		commands: stream.NewStream[command]("commands"),

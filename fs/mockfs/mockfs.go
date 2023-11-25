@@ -114,10 +114,10 @@ func (f *fsys) scanArchive(scan scan) {
 				if f.lc.ShoudStop() {
 					return
 				}
-				f.events <- fs.Progress{
-					Root:     scan.root,
-					Path:     file.Path,
-					Progress: progress,
+				f.events <- fs.CopyProgress{
+					Root:   scan.root,
+					Path:   file.Path,
+					Copyed: progress,
 				}
 				time.Sleep(100 * time.Microsecond)
 			}
@@ -145,10 +145,10 @@ func (f *fsys) copyFile(copy copy) {
 		if f.lc.ShoudStop() {
 			return
 		}
-		f.events <- fs.Progress{
-			Root:     copy.fromRoot,
-			Path:     copy.path,
-			Progress: progress,
+		f.events <- fs.CopyProgress{
+			Root:   copy.fromRoot,
+			Path:   copy.path,
+			Copyed: progress,
 		}
 		time.Sleep(time.Millisecond)
 	}
