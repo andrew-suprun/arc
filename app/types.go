@@ -3,7 +3,6 @@ package app
 import (
 	"arc/fs"
 	"arc/lifecycle"
-	"arc/log"
 	"fmt"
 	"slices"
 	"strings"
@@ -136,6 +135,9 @@ func (f *file) String() string {
 	fmt.Fprintf(buf, "{name: %q, path: %v, state: %s, size: %d, modTime: %s", f.name, f.path(), f.state, f.size, f.modTime.Format(time.DateTime))
 	if f.hash != "" {
 		fmt.Fprintf(buf, ", hash: %q", f.hash)
+	}
+	if f.folder != nil {
+		fmt.Fprintf(buf, ", nFiles: %d, nHashed: %d", f.nFiles, f.nHashed)
 	}
 	if f.copied > 0 && f.copied < f.size {
 		fmt.Fprintf(buf, ", copied: %d", f.copied)
@@ -292,7 +294,6 @@ func (folder *file) updateMetas() {
 	if folder.size == 0 && folder.parent != nil {
 		folder.parent.deleteFile(folder)
 	}
-	log.Debug("metas", "folder", folder.fullPath(), "nFiles", folder.nFiles, "nHashed", folder.nHashed)
 }
 
 func (folder *file) updateMeta(meta *file) {
@@ -304,12 +305,6 @@ func (folder *file) updateMeta(meta *file) {
 	}
 	if folder.modTime.Before(meta.modTime) {
 		folder.modTime = meta.modTime
-	}
-	if meta.state == copying {
-		folder.copied += meta.copied
-		if meta.state == pending || meta.state == copied {
-			folder.copying += meta.size
-		}
 	}
 	folder.state = max(folder.state, meta.state)
 }

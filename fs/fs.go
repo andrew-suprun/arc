@@ -1,6 +1,9 @@
 package fs
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type (
 	FS interface {
@@ -72,3 +75,11 @@ func (Copied) event()        {}
 func (Renamed) event()       {}
 func (Deleted) event()       {}
 func (Error) event()         {}
+
+func (event FileMeta) String() string {
+	return fmt.Sprintf("FileMeta{Root: %q, Path: %q, Size: %d, ModTime: %s}", event.Root, event.Path, event.Size, event.ModTime.Format("2006-01-02T15:04:05"))
+}
+
+func (event FileHashed) String() string {
+	return fmt.Sprintf("FileHashed{Root: %q, Path: %q, Hash: %q}", event.Root, event.Path, event.Hash)
+}

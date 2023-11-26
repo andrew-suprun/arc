@@ -56,6 +56,9 @@ func Run(roots []string, lc *lifecycle.Lifecycle, fsys fs.FS) {
 				break loop
 			}
 		}
+
+		app.curArchive.rootFolder.updateMetas()
+		app.sort()
 		app.render(screen)
 	}
 }

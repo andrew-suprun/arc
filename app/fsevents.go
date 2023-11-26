@@ -51,7 +51,7 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		app.analyze()
 
 	case fs.Renamed, fs.Deleted:
-		app.analyze()
+		// app.analyze()
 
 	default:
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
@@ -122,7 +122,7 @@ func parsePath(strPath string) []string {
 	if strPath == "" {
 		return nil
 	}
-	return strings.Split(string(strPath), "/")
+	return strings.Split(strPath, "/")
 }
 
 func parseName(strPath string) ([]string, string) {
