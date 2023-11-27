@@ -139,8 +139,8 @@ func (f *file) String() string {
 	if f.folder != nil {
 		fmt.Fprintf(buf, ", nFiles: %d, nHashed: %d", f.nFiles, f.nHashed)
 	}
-	if f.copied > 0 && f.copied < f.size {
-		fmt.Fprintf(buf, ", copied: %d", f.copied)
+	if f.copying > 0 {
+		fmt.Fprintf(buf, ", copying: %d, copied: %d", f.copying, f.copied)
 	}
 	buf.WriteRune('}')
 	return buf.String()
@@ -297,8 +297,9 @@ func (folder *file) updateMetas() {
 }
 
 func (folder *file) updateMeta(meta *file) {
-	folder.copied += meta.copied
 	folder.size += meta.size
+	folder.copying += meta.copying
+	folder.copied += meta.copied
 	folder.nFiles++
 	if meta.hash != "" {
 		folder.nHashed++

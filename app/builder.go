@@ -77,8 +77,8 @@ func (b *builder) state(file *file, config config) {
 		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
 		return
 	}
-	if file.copied > 0 && file.copied < file.size {
-		value := float64(file.copied) / float64(file.size)
+	if file.copied > 0 && file.copied < file.copying {
+		value := float64(file.copied) / float64(file.copying)
 		b.text(" ")
 		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
 		return

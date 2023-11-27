@@ -278,6 +278,7 @@ func (app *appState) resolve(source *file) {
 			clone.parent = folder
 			clone.state = hashed
 			source.state = pending
+			source.copying = source.size
 			source.counts[archive.idx]++
 		}
 
