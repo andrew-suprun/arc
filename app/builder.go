@@ -83,10 +83,13 @@ func (b *builder) state(file *file, config config) {
 		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
 		return
 	}
-	showCounts := false
-	for _, count := range file.counts {
-		if count != 1 {
-			showCounts = true
+	showCounts := file.folder == nil && file.state == divergent
+	if !showCounts {
+		for _, count := range file.counts {
+			if count != 1 {
+				showCounts = true
+				break
+			}
 		}
 	}
 	if showCounts {

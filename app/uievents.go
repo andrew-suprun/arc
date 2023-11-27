@@ -250,8 +250,8 @@ func (app *appState) resolve(source *file) {
 		archive.rootFolder.walk(func(_ int, child *file) handleResult {
 			if child.hash == source.hash && child.state == divergent {
 				archive.deleteFile(child)
+				source.state = hashed
 				clone := source.clone(archive)
-				clone.state = hashed
 				folder := archive.getFile(source.path())
 				folder.children = append(folder.children, clone)
 				clone.parent = folder
