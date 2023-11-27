@@ -13,6 +13,7 @@ var (
 	styleArchive        = tcell.StyleDefault.Foreground(tcell.Color226).Background(tcell.ColorBlack).Bold(true)
 	styleBreadcrumbs    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.Color17).Bold(true).Italic(true)
 	styleFolderHeader   = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorGray).Bold(true)
+	styleProgressBar    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorBlack).Bold(true)
 )
 
 func (app *appState) render(screen tcell.Screen) {
@@ -191,7 +192,26 @@ func fileStyle(file *file) tcell.Style {
 }
 
 func (app *appState) statusLine(b *builder) {
+
+	root := app.curArchive.rootFolder
+	var stage string
+	var value float64
+	if root.nHashed > 0 && root.nHashed < root.nFiles {
+		stage = " Hashing"
+		value = float64(root.nHashed) / float64(root.nFiles)
+	} else if root.copied > 0 && root.copied < root.copying {
+		stage = " Copying"
+		value = float64(root.copied) / float64(root.copying)
+	}
 	b.style(styleArchive)
-	b.text(" Status line will be here...", flex(1))
+	if stage == "" {
+		b.text(" All Clear", flex(1))
+	} else {
+		b.text(stage)
+		b.text(fmt.Sprintf(" %6.2f%% ", value*100))
+		b.progressBar(value, flex(1), styleProgressBar)
+		b.text(" ")
+	}
+
 	b.newLine()
 }

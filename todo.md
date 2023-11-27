@@ -1,4 +1,3 @@
-* fix progress bar for folders while copying 
-* status line
+* add duplicates/divergents to status line
 * search/filter
 * copy/paste
