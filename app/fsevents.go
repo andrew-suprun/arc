@@ -9,40 +9,40 @@ import (
 
 func (app *appState) handleFsEvent(event fs.Event) {
 	switch event := event.(type) {
-	case fs.FileMetas:
-		for _, meta := range event {
-			archive := app.archive(meta.Root)
-			path, name := parseName(meta.Path)
-			incoming := &file{
-				archive: archive,
-				name:    name,
-				size:    meta.Size,
-				modTime: meta.ModTime,
-				hash:    meta.Hash,
-				state:   scanned,
-			}
-			if meta.Hash != "" {
-				incoming.state = hashed
-			}
-			folder := archive.getFile(path)
-			folder.children = append(folder.children, incoming)
-			incoming.parent = folder
-			folder.sorted = false
+	case fs.FileMeta:
+		archive := app.archive(event.Root)
+		path, name := parseName(event.Path)
+		incoming := &file{
+			archive: archive,
+			name:    name,
+			size:    event.Size,
+			modTime: event.ModTime,
+			hash:    event.Hash,
+			state:   scanned,
 		}
+		if event.Hash != "" {
+			incoming.state = hashed
+		}
+		folder := archive.getFile(path)
+		folder.children = append(folder.children, incoming)
+		incoming.parent = folder
+		folder.sorted = false
 
 	case fs.FileHashed:
 		file := app.archive(event.Root).findFile(parsePath(event.Path))
 		file.hash = event.Hash
 		file.state = hashed
+		app.archive(event.Root).archiveState = archiveScanned
+
+	case fs.ArchiveHashed:
+		log.Debug("hashed", "archive", event.Root)
+		app.archive(event.Root).archiveState = archiveHashed
+		app.analyze()
 
 	case fs.CopyProgress:
 		file := app.archive(event.Root).findFile(parsePath(event.Path))
 		file.state = copying
 		file.copied = event.Copyed
-
-	case fs.ArchiveHashed:
-		app.archive(event.Root).archiveState = archiveHashed
-		app.analyze()
 
 	case fs.Copied:
 		file := app.archive(event.FromRoot).findFile(parsePath(event.Path))

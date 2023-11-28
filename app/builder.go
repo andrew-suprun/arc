@@ -70,50 +70,6 @@ func (b *builder) progressBar(value float64, configs ...config) {
 
 }
 
-func (b *builder) state(file *file, config config) {
-	if file.folder != nil && file.nHashed > 0 && file.nHashed < file.nFiles {
-		value := float64(file.nHashed) / float64(file.nFiles)
-		b.text(" ")
-		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
-		return
-	}
-	if file.copied > 0 && file.copied < file.copying {
-		value := float64(file.copied) / float64(file.copying)
-		b.text(" ")
-		b.progressBar(value, width(10), b.curStyle.Foreground(tcell.Color231).Background(tcell.Color33))
-		return
-	}
-	showCounts := file.folder == nil && file.state == divergent
-	if !showCounts {
-		for _, count := range file.counts {
-			if count != 1 {
-				showCounts = true
-				break
-			}
-		}
-	}
-	if showCounts {
-		b.text(fileCounts(file), config)
-		return
-	}
-	switch file.state {
-	case scanned, hashed, copying:
-		b.text("", config)
-
-	case pending:
-		b.text(" Pending", config)
-
-	case duplicate:
-		b.text(" Duplicates", config)
-
-	case divergent:
-		b.text(" Divergent", config)
-
-	default:
-		panic("invalid file state")
-	}
-}
-
 func (b *builder) layout() {
 	totalWidth, totalFlex := width(0), flex(0)
 	for _, field := range b.fields {

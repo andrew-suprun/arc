@@ -27,6 +27,7 @@ type (
 	scan struct{ root string }
 	copy struct {
 		path     string
+		hash     string
 		fromRoot string
 		toRoots  []string
 	}
@@ -65,8 +66,8 @@ func (fs *fsys) Scan(root string) {
 	fs.commands.Push(scan{root: root})
 }
 
-func (fs *fsys) Copy(path, fromRoot string, toRoots ...string) {
-	fs.commands.Push(copy{path: path, fromRoot: fromRoot, toRoots: toRoots})
+func (fs *fsys) Copy(path, hash, fromRoot string, toRoots ...string) {
+	fs.commands.Push(copy{path: path, hash: hash, fromRoot: fromRoot, toRoots: toRoots})
 }
 
 func (fs *fsys) Rename(root, sourcePath, targetPath string) {

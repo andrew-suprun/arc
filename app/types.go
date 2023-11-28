@@ -83,7 +83,8 @@ type (
 )
 
 const (
-	archiveScanned archiveState = iota
+	archiveScanning archiveState = iota
+	archiveScanned
 	archiveHashed
 )
 

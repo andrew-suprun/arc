@@ -2,7 +2,6 @@ package filesys
 
 import (
 	"arc/fs"
-	"cmp"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/csv"
@@ -11,7 +10,6 @@ import (
 	iofs "io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,17 +29,18 @@ func (s *fsys) scanArchive(scan scan) {
 	s.lc.Started()
 	defer s.lc.Done()
 
+	metaMap := s.readMeta(scan.root)
+	var metaSlice []*meta
+
 	defer func() {
+		_ = s.storeMeta(scan.root, metaSlice)
 		s.events <- fs.ArchiveHashed{
 			Root: scan.root,
 		}
-
 	}()
 
-	metaSlice := []*meta{}
-	metaMap := map[uint64]*fs.FileMeta{}
 	fsys := os.DirFS(scan.root)
-	iofs.WalkDir(fsys, ".", func(path string, d iofs.DirEntry, err error) error {
+	err := iofs.WalkDir(fsys, ".", func(path string, d iofs.DirEntry, err error) error {
 		if s.lc.ShoudStop() || !d.Type().IsRegular() || strings.HasPrefix(d.Name(), ".") {
 			return nil
 		}
@@ -57,15 +56,21 @@ func (s *fsys) scanArchive(scan scan) {
 			return nil
 		}
 		sys := info.Sys().(*syscall.Stat_t)
+		size := int(info.Size())
 		modTime := info.ModTime()
 		modTime = modTime.UTC().Round(time.Second)
 
 		file := &fs.FileMeta{
 			Root:    scan.root,
 			Path:    norm.NFC.String(path),
-			Size:    int(info.Size()),
+			Size:    size,
 			ModTime: modTime,
 		}
+		readMeta := metaMap[sys.Ino]
+		if readMeta != nil && readMeta.ModTime == modTime && readMeta.Size == size {
+			file.Hash = readMeta.Hash
+		}
+		s.events <- *file
 
 		metaSlice = append(metaSlice, &meta{
 			inode: sys.Ino,
@@ -75,23 +80,10 @@ func (s *fsys) scanArchive(scan scan) {
 
 		return nil
 	})
-
-	s.readMeta(scan.root, metaMap)
-
-	slices.SortFunc(metaSlice, func(a, b *meta) int {
-		return cmp.Compare(strings.ToLower(a.file.Path), strings.ToLower(b.file.Path))
-	})
-
-	slice := make(fs.FileMetas, 0, len(metaSlice))
-	for _, meta := range metaSlice {
-		slice = append(slice, *meta.file)
+	if err != nil {
+		s.events <- fs.Error{Path: scan.root, Error: err}
+		return
 	}
-
-	s.events <- slice
-
-	defer func() {
-		s.storeMeta(scan.root, metaSlice)
-	}()
 
 	for _, meta := range metaSlice {
 		if meta.file.Hash != "" {
@@ -109,22 +101,24 @@ func (s *fsys) scanArchive(scan scan) {
 	}
 }
 
-func (s *fsys) readMeta(root string, metas map[uint64]*fs.FileMeta) {
+func (s *fsys) readMeta(root string) map[uint64]*fs.FileMeta {
+	metas := map[uint64]*fs.FileMeta{}
 	absHashFileName := filepath.Join(root, hashFileName)
 	hashInfoFile, err := os.Open(absHashFileName)
 	if err != nil {
-		return
+		return metas
 	}
 	defer hashInfoFile.Close()
 
 	records, err := csv.NewReader(hashInfoFile).ReadAll()
 	if err != nil || len(records) == 0 {
-		return
+		return metas
 	}
 
 	for _, record := range records[1:] {
 		if len(record) == 5 {
 			iNode, er1 := strconv.ParseUint(record[0], 10, 64)
+			path := record[1]
 			size, er2 := strconv.ParseUint(record[2], 10, 64)
 			modTime, er3 := time.Parse(time.RFC3339, record[3])
 			modTime = modTime.UTC().Round(time.Second)
@@ -133,12 +127,21 @@ func (s *fsys) readMeta(root string, metas map[uint64]*fs.FileMeta) {
 				continue
 			}
 
+			metas[iNode] = &fs.FileMeta{
+				Root:    root,
+				Path:    path,
+				Size:    int(size),
+				ModTime: modTime,
+				Hash:    hash,
+			}
+
 			info, ok := metas[iNode]
 			if hash != "" && ok && info.ModTime == modTime && info.Size == int(size) {
 				metas[iNode].Hash = hash
 			}
 		}
 	}
+	return metas
 }
 
 func (s *fsys) storeMeta(root string, metas []*meta) error {
@@ -165,7 +168,7 @@ func (s *fsys) storeMeta(root string, metas []*meta) error {
 		return err
 	}
 	err = csv.NewWriter(hashInfoFile).WriteAll(result)
-	hashInfoFile.Close()
+	_ = hashInfoFile.Close()
 	return err
 }
 

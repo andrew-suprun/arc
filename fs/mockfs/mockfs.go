@@ -28,6 +28,7 @@ type (
 	scan struct{ root string }
 	copy struct {
 		path     string
+		hash     string
 		fromRoot string
 		toRoots  []string
 	}
@@ -65,8 +66,8 @@ func (fs *fsys) Scan(root string) {
 	fs.commands.Push(scan{root: root})
 }
 
-func (fs *fsys) Copy(path, fromRoot string, toRoots ...string) {
-	fs.commands.Push(copy{path: path, fromRoot: fromRoot, toRoots: toRoots})
+func (fs *fsys) Copy(path, hash, fromRoot string, toRoots ...string) {
+	fs.commands.Push(copy{path: path, hash: hash, fromRoot: fromRoot, toRoots: toRoots})
 }
 
 func (fs *fsys) Rename(root, sourcePath, targetPath string) {
@@ -104,12 +105,11 @@ func (f *fsys) run() {
 
 func (f *fsys) scanArchive(scan scan) {
 	metas := archives[scan.root]
-	slice := make(fs.FileMetas, len(metas))
 	for i := range metas {
-		slice[i] = metas[i]
-		slice[i].Hash = ""
+		meta := metas[i]
+		meta.Hash = ""
+		f.events <- meta
 	}
-	f.events <- slice
 	for _, file := range metas {
 		f.events <- fs.FileHashed{
 			Root: scan.root,
@@ -157,11 +157,11 @@ func (f *fsys) deleteFile(delete delete) {
 	f.events <- fs.Deleted{Path: delete.path}
 }
 
-var archives = map[string]fs.FileMetas{}
+var archives = map[string][]fs.FileMeta{}
 
 func init() {
 	or := readMeta()
-	// or := fs.FileMetas{}
+	// or := []fs.FileMeta{}
 
 	c1 := slices.Clone(or)
 	c2 := slices.Clone(or)
@@ -316,15 +316,15 @@ func init() {
 		c2[i].Root = "copy 2"
 	}
 
-	archives = map[string]fs.FileMetas{
+	archives = map[string][]fs.FileMeta{
 		"origin": or,
 		"copy 1": c1,
 		"copy 2": c2,
 	}
 }
 
-func readMeta() fs.FileMetas {
-	result := fs.FileMetas{}
+func readMeta() []fs.FileMeta {
+	result := []fs.FileMeta{}
 	hashInfoFile, err := os.Open("data/.meta.csv")
 	if err != nil {
 		return nil

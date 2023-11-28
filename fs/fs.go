@@ -9,7 +9,7 @@ type (
 	FS interface {
 		Events() <-chan Event
 		Scan(root string)
-		Copy(path, fromRoot string, toRoots ...string)
+		Copy(path, hash, fromRoot string, toRoots ...string)
 		Rename(root, sourcePath, targetPath string)
 		Delete(path string)
 		Quit()
@@ -18,8 +18,6 @@ type (
 	Event interface {
 		event()
 	}
-
-	FileMetas []FileMeta
 
 	FileMeta struct {
 		Root    string
@@ -67,7 +65,7 @@ type (
 	}
 )
 
-func (FileMetas) event()     {}
+func (FileMeta) event()      {}
 func (FileHashed) event()    {}
 func (CopyProgress) event()  {}
 func (ArchiveHashed) event() {}

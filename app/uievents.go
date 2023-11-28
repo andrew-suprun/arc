@@ -287,7 +287,7 @@ func (app *appState) resolve(source *file) {
 			roots[i] = archives[i].rootPath
 		}
 
-		app.fs.Copy(filepath.Join(source.fullPath()...), app.curArchive.rootPath, roots...)
+		app.fs.Copy(filepath.Join(source.fullPath()...), source.hash, app.curArchive.rootPath, roots...)
 	}
 }
 

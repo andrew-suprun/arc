@@ -2,10 +2,15 @@ package filesys
 
 import (
 	"arc/fs"
+	"encoding/csv"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 func (f *fsys) copyFile(copy copy) {
@@ -92,9 +97,9 @@ func (f *fsys) reader(copy copy, eventChans []chan event) {
 		return
 	}
 
-	for i, to := range copy.toRoots {
+	for i, root := range copy.toRoots {
 		commands[i] = make(chan []byte)
-		go f.writer(filepath.Join(to, copy.path), info.ModTime(), commands[i], eventChans[i])
+		go f.writer(root, copy.path, copy.hash, info.ModTime(), commands[i], eventChans[i])
 	}
 
 	sourceFile, err := os.Open(source)
@@ -119,23 +124,43 @@ func (f *fsys) reader(copy copy, eventChans []chan event) {
 	}
 }
 
-func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventChan chan event) {
+func (f *fsys) writer(root, path, hash string, modTime time.Time, cmdChan chan []byte, eventChan chan event) {
 	var copied copyProgress
 
-	filePath := filepath.Dir(to)
-	os.MkdirAll(filePath, 0755)
-	file, err := os.Create(to)
+	fullPath := filepath.Join(root, path)
+	dirPath := filepath.Dir(fullPath)
+	_ = os.MkdirAll(dirPath, 0755)
+	file, err := os.Create(fullPath)
 	if err != nil {
-		f.events <- fs.Error{Path: to, Error: err}
+		f.events <- fs.Error{Path: fullPath, Error: err}
 		return
 	}
 
 	defer func() {
 		if file != nil {
-			file.Close()
-			os.Chtimes(to, time.Now(), modTime)
+			info, _ := file.Stat()
+			sys := info.Sys().(*syscall.Stat_t)
+			size := info.Size()
+			_ = file.Close()
+			_ = os.Chtimes(fullPath, time.Now(), modTime)
+
+			absHashFileName := filepath.Join(root, hashFileName)
+			hashInfoFile, err := os.OpenFile(absHashFileName, os.O_APPEND|os.O_WRONLY, 0644)
+			if err == nil {
+				csvWriter := csv.NewWriter(hashInfoFile)
+				_ = csvWriter.Write([]string{
+					fmt.Sprint(sys.Ino),
+					norm.NFC.String(path),
+					fmt.Sprint(size),
+					modTime.UTC().Format(time.RFC3339Nano),
+					hash,
+				})
+				csvWriter.Flush()
+				_ = hashInfoFile.Close()
+			}
+
 			if f.lc.ShoudStop() {
-				os.Remove(filePath)
+				_ = os.Remove(dirPath)
 			}
 		}
 		close(eventChan)
@@ -150,7 +175,7 @@ func (f *fsys) writer(to string, modTime time.Time, cmdChan chan []byte, eventCh
 		n, err := file.Write([]byte(cmd))
 		copied += copyProgress(n)
 		if err != nil {
-			f.events <- fs.Error{Path: to, Error: err}
+			f.events <- fs.Error{Path: fullPath, Error: err}
 			return
 		}
 		eventChan <- copied
