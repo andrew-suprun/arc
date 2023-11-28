@@ -51,7 +51,7 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		app.analyze()
 
 	case fs.Renamed, fs.Deleted:
-		// app.analyze()
+		app.analyze()
 
 	default:
 		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))

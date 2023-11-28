@@ -83,7 +83,7 @@ type (
 )
 
 const (
-	archiveScanning archiveState = iota
+	archiveStarted archiveState = iota
 	archiveScanned
 	archiveHashed
 )
@@ -344,4 +344,14 @@ func (folder *folder) deleteFile(file *file) {
 			break
 		}
 	}
+}
+
+func (app *appState) state() archiveState {
+	state := archiveHashed
+	for _, archive := range app.archives {
+		if state > archive.archiveState {
+			state = archive.archiveState
+		}
+	}
+	return state
 }

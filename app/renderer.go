@@ -152,7 +152,7 @@ func (app *appState) folderView(b *builder) {
 			style = style.Background(tcell.Color20)
 		}
 		b.style(style)
-		app.state(b, file, width(11))
+		b.fileState(app.state(), file, width(11))
 		if file.folder == nil {
 			b.text("   ")
 		} else {
@@ -193,32 +193,38 @@ func fileStyle(file *file) tcell.Style {
 }
 
 func (app *appState) statusLine(b *builder) {
+	defer b.newLine()
 
-	root := app.curArchive.rootFolder
-	var stage string
-	var value float64
-	if root.nHashed > 0 && root.nHashed < root.nFiles {
-		stage = " Hashing"
-		value = float64(root.nHashed) / float64(root.nFiles)
-	} else if root.copied > 0 && root.copied < root.copying {
-		stage = " Copying"
-		value = float64(root.copied) / float64(root.copying)
-	}
 	b.style(styleArchive)
-	if stage == "" {
-		b.text(" All Clear", flex(1))
-	} else {
-		b.text(stage)
+	root := app.curArchive.rootFolder
+	value := float64(root.nHashed) / float64(root.nFiles)
+	if value > 0 && value < 1 {
+		b.text(" Hashing")
 		b.text(fmt.Sprintf(" %6.2f%% ", value*100))
 		b.progressBar(value, flex(1), styleProgressBar)
 		b.text(" ")
+		return
 	}
-
-	b.newLine()
+	value = float64(root.copied) / float64(root.copying)
+	if value > 0 && value < 1 {
+		b.text(" Copying")
+		b.text(fmt.Sprintf(" %6.2f%% ", value*100))
+		b.progressBar(value, flex(1), styleProgressBar)
+		b.text(" ")
+		return
+	}
+	switch app.state() {
+	case archiveStarted:
+		b.text(" Scanning other(s)", flex(1))
+	case archiveScanned:
+		b.text(" Hashing other(s)", flex(1))
+	case archiveHashed:
+		b.text(" All Clear", flex(1))
+	}
 }
 
-func (app *appState) state(b *builder, file *file, config config) {
-	if app.curArchive.archiveState == archiveScanning {
+func (b *builder) fileState(state archiveState, file *file, config config) {
+	if state == archiveStarted {
 		b.text("", config)
 		return
 	}

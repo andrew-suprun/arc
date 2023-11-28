@@ -101,11 +101,14 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		app.fs.Quit()
 
 	case "Ctrl+R":
-		app.resolve(app.curArchive.curFolder.getSelected())
+		if app.state() == archiveHashed {
+			app.resolve(app.curArchive.curFolder.getSelected())
+		}
 
 	case "Ctrl+A":
-		app.resolve(app.curArchive.curFolder)
-
+		if app.state() == archiveHashed {
+			app.resolve(app.curArchive.curFolder)
+		}
 	case "Tab":
 		_, next := app.findNeighbours()
 		if next != nil {
@@ -121,8 +124,10 @@ func (app *appState) handleKeyEvent(event *tcell.EventKey) {
 		}
 
 	case "Backspace2": // Ctrl+Delete
-		folder := app.curArchive.curFolder
-		app.delete(folder.getSelected())
+		if app.state() == archiveHashed {
+			folder := app.curArchive.curFolder
+			app.delete(folder.getSelected())
+		}
 
 	case "F10":
 		// TODO Switch Debug On/Off
