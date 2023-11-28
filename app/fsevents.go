@@ -69,6 +69,7 @@ func (app *appState) analyze() {
 	countsByHash := map[string][]int{}
 	copyingInProgress := false
 	for i, arc := range app.archives {
+		arc.nDivergents = 0
 		arc.rootFolder.walk(func(_ int, file *file) handleResult {
 			if file.state == pending || file.state == copying {
 				copyingInProgress = true
@@ -88,6 +89,7 @@ func (app *appState) analyze() {
 				otherFile := otherArc.findFile(path)
 				if otherFile == nil || otherFile.hash != file.hash {
 					file.state = divergent
+					arc.nDivergents++
 					break
 				}
 			}
@@ -118,6 +120,15 @@ func (app *appState) analyze() {
 			return advance
 		})
 	}
+	for i, arc := range app.archives {
+		arc.nDuplicates = 0
+		for _, counts := range countsByHash {
+			if counts[i] > 1 {
+				arc.nDuplicates++
+			}
+		}
+	}
+
 }
 
 func parsePath(strPath string) []string {

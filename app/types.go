@@ -35,6 +35,8 @@ type (
 		rootFolder   *file
 		curFolder    *file
 		archiveState archiveState
+		nDuplicates  int
+		nDivergents  int
 	}
 
 	file struct {

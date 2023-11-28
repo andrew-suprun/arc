@@ -196,7 +196,8 @@ func (app *appState) statusLine(b *builder) {
 	defer b.newLine()
 
 	b.style(styleArchive)
-	root := app.curArchive.rootFolder
+	archive := app.curArchive
+	root := archive.rootFolder
 	value := float64(root.nHashed) / float64(root.nFiles)
 	if value > 0 && value < 1 {
 		b.text(" Hashing")
@@ -219,7 +220,19 @@ func (app *appState) statusLine(b *builder) {
 	case archiveScanned:
 		b.text(" Hashing other(s)", flex(1))
 	case archiveHashed:
-		b.text(" All Clear", flex(1))
+		if archive.nDuplicates > 0 || archive.nDivergents > 0 {
+			if archive.nDivergents > 0 {
+				b.text(" Divergents: ")
+				b.text(fmt.Sprintf("%d", archive.nDivergents), styleArchive)
+			}
+			if archive.nDuplicates > 0 {
+				b.text(" Duplicates: ")
+				b.text(fmt.Sprintf("%d", archive.nDuplicates), styleArchive)
+			}
+			b.text("", flex(1))
+		} else {
+			b.text(" All Clear", flex(1))
+		}
 	}
 }
 
