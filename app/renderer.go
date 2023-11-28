@@ -13,7 +13,7 @@ var (
 	styleArchive        = tcell.StyleDefault.Foreground(tcell.Color226).Background(tcell.ColorBlack).Bold(true)
 	styleBreadcrumbs    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.Color17).Bold(true).Italic(true)
 	styleFolderHeader   = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorGray).Bold(true)
-	styleProgressBar    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.ColorBlack).Bold(true)
+	styleProgressBar    = tcell.StyleDefault.Foreground(tcell.Color231).Background(tcell.Color33).Bold(true)
 )
 
 func (app *appState) render(screen tcell.Screen) {
@@ -174,7 +174,8 @@ func (app *appState) folderView(b *builder) {
 }
 
 func fileStyle(file *file) tcell.Style {
-	if file.copied > 0 && file.copied < file.size {
+	if file.folder != nil && file.nHashed > 0 && file.nHashed < file.nFiles ||
+		file.copied > 0 && file.copied < file.size {
 		return tcell.StyleDefault.Foreground(tcell.PaletteColor(51)).Background(tcell.PaletteColor(17))
 	}
 	fg := 231

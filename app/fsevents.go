@@ -105,6 +105,8 @@ func (app *appState) analyze() {
 		arc.rootFolder.walk(func(_ int, file *file) handleResult {
 			if !copyingInProgress && file.state == copied {
 				file.state = hashed
+				file.copying = 0
+				file.copied = 0
 			}
 			if file.state == divergent {
 				return advance

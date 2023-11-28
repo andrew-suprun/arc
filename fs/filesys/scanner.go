@@ -181,29 +181,23 @@ func (s *fsys) hashFile(meta *fs.FileMeta) string {
 	}
 	defer file.Close()
 
-	offset := 0
-	if meta.Size > bufSize {
+	offset := bufSize
+	if meta.Size > 2*bufSize {
 		offset = meta.Size - bufSize
 	}
-	nr, er := file.ReadAt(buf, int64(offset))
-
-	if nr > 0 {
-		nw, ew := hash.Write(buf[0:nr])
-		if ew != nil {
-			if err != nil {
-				s.events <- fs.Error{Path: path, Error: err}
-				return ""
-			}
-		}
-		if nr != nw {
-			s.events <- fs.Error{Path: path, Error: err}
-			return ""
-		}
-	}
-
+	nr, er := file.Read(buf)
 	if er != nil && er != io.EOF {
 		s.events <- fs.Error{Path: path, Error: err}
 		return ""
+	}
+	hash.Write(buf[0:nr])
+	if meta.Size > bufSize {
+		nr, er := file.ReadAt(buf, int64(offset))
+		if er != nil && er != io.EOF {
+			s.events <- fs.Error{Path: path, Error: err}
+			return ""
+		}
+		hash.Write(buf[0:nr])
 	}
 
 	return base64.RawURLEncoding.EncodeToString(hash.Sum(nil))
