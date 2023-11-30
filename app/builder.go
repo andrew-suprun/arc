@@ -17,13 +17,14 @@ type builder struct {
 	curStyle tcell.Style
 }
 
-type config interface{}
+type config any
 type width int
 type flex int
+type render func(width width) []rune
 type handler func(offset, width width)
 
 type field struct {
-	renderer
+	render
 	width
 	flex
 	handler
@@ -37,7 +38,7 @@ func (b *builder) style(style tcell.Style) {
 func (b *builder) text(txt string, configs ...config) {
 	runes := []rune(txt)
 	field := &field{
-		renderer: &text{text: runes},
+		render: textRenderer(runes),
 	}
 	field.config(configs)
 	if field.width == 0 {
@@ -63,7 +64,7 @@ func (f *field) config(configs []config) {
 
 func (b *builder) progressBar(value float64, configs ...config) {
 	field := &field{
-		renderer: &progressBar{value: value},
+		render: progressBarRenderer(value),
 	}
 	field.config(configs)
 	b.fields = append(b.fields, field)
@@ -137,7 +138,7 @@ func (b *builder) newLine() {
 		if field.style != nil {
 			style = *field.style
 		}
-		for i, ch := range field.runes(field.width) {
+		for i, ch := range field.render(field.width) {
 			b.screen.SetContent(int(x)+i, b.line, ch, nil, style)
 		}
 		x += field.width
@@ -154,52 +155,44 @@ func (b *builder) show(sync bool) {
 	}
 }
 
-type renderer interface {
-	runes(width width) []rune
+func textRenderer(text []rune) render {
+	return func(width width) []rune {
+		if width < 1 {
+			return nil
+		}
+		if len(text) > int(width) {
+			text = append(text[:width-1], '…')
+		}
+		diff := int(width) - len(text)
+		for diff > 0 {
+			text = append(text, ' ')
+			diff--
+		}
+		return text
+	}
 }
 
-type text struct {
-	text []rune
-}
+func progressBarRenderer(value float64) render {
+	return func(width width) []rune {
+		if value < 0 || value > 1 {
+			panic(fmt.Sprintf("Invalid progressBar value: %v", value))
+		}
 
-func (t *text) runes(width width) []rune {
-	if width < 1 {
-		return nil
+		runes := make([]rune, width)
+		progress := int(math.Round(float64(width*8) * float64(value)))
+		idx := 0
+		for ; idx < progress/8; idx++ {
+			runes[idx] = '█'
+		}
+		if progress%8 > 0 {
+			runes[idx] = []rune{' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉'}[progress%8]
+			idx++
+		}
+		for ; idx < int(width); idx++ {
+			runes[idx] = ' '
+		}
+		return runes
 	}
-	if len(t.text) > int(width) {
-		t.text = append(t.text[:width-1], '…')
-	}
-	diff := int(width) - len(t.text)
-	for diff > 0 {
-		t.text = append(t.text, ' ')
-		diff--
-	}
-	return t.text
-}
-
-type progressBar struct {
-	value float64
-}
-
-func (pb *progressBar) runes(width width) []rune {
-	if pb.value < 0 || pb.value > 1 {
-		panic(fmt.Sprintf("Invalid progressBar value: %v", pb.value))
-	}
-
-	runes := make([]rune, width)
-	progress := int(math.Round(float64(width*8) * float64(pb.value)))
-	idx := 0
-	for ; idx < progress/8; idx++ {
-		runes[idx] = '█'
-	}
-	if progress%8 > 0 {
-		runes[idx] = []rune{' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉'}[progress%8]
-		idx++
-	}
-	for ; idx < int(width); idx++ {
-		runes[idx] = ' '
-	}
-	return runes
 }
 
 const modTimeFormat = "  2006-01-02T15:04:05"
