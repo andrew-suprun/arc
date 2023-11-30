@@ -2,8 +2,6 @@ package app
 
 import (
 	"arc/fs"
-	"arc/log"
-	"fmt"
 	"strings"
 )
 
@@ -35,7 +33,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 		app.archive(event.Root).archiveState = archiveScanned
 
 	case fs.ArchiveHashed:
-		log.Debug("hashed", "archive", event.Root)
 		app.archive(event.Root).archiveState = archiveHashed
 		app.analyze()
 
@@ -52,10 +49,6 @@ func (app *appState) handleFsEvent(event fs.Event) {
 
 	case fs.Renamed, fs.Deleted:
 		app.analyze()
-
-	default:
-		log.Debug("handleFsEvent", "unhandled", fmt.Sprintf("%T", event))
-		panic(event)
 	}
 }
 

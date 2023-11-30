@@ -91,7 +91,7 @@ func (f *fsys) run() {
 			}
 			switch cmd := command.(type) {
 			case scan:
-				f.scanArchive(cmd)
+				go f.scanArchive(cmd)
 			case copy:
 				f.copyFile(cmd)
 			case rename:
