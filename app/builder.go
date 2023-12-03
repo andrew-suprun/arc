@@ -195,7 +195,7 @@ func progressBarRenderer(value float64) render {
 	}
 }
 
-const modTimeFormat = "  2006-01-02T15:04:05"
+const modTimeFormat = "  2006-01-02 15:04:05"
 
 func fileCounts(file *file) string {
 	buf := &strings.Builder{}

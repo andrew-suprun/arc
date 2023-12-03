@@ -75,7 +75,7 @@ func (Deleted) event()       {}
 func (Error) event()         {}
 
 func (event FileMeta) String() string {
-	return fmt.Sprintf("FileMeta{Root: %q, Path: %q, Size: %d, ModTime: %s}", event.Root, event.Path, event.Size, event.ModTime.Format("2006-01-02T15:04:05"))
+	return fmt.Sprintf("FileMeta{Root: %q, Path: %q, Size: %d, ModTime: %s}", event.Root, event.Path, event.Size, event.ModTime.Format("2006-01-02 15:04:05"))
 }
 
 func (event FileHashed) String() string {
