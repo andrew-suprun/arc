@@ -120,46 +120,59 @@ func (f *fsys) run() {
 
 func (f *fsys) renameFile(rename rename) {
 	log.Debug("rename", "root", rename.root, "source", rename.sourcePath, "target", rename.targetPath)
-	defer func() {
-		f.events <- fs.Renamed{
-			Root:       rename.root,
-			SourcePath: rename.sourcePath,
-			TargetPath: rename.targetPath,
-		}
-	}()
 	path := filepath.Join(rename.root, filepath.Dir(rename.targetPath))
 	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		f.events <- fs.Error{Path: path, Error: err}
+		return
 	}
 	from := filepath.Join(rename.root, rename.sourcePath)
 	to := filepath.Join(rename.root, rename.targetPath)
 	err = os.Rename(from, to)
 	if err != nil {
 		f.events <- fs.Error{Path: to, Error: err}
+		return
 	}
+	f.events <- fs.Renamed{
+		Root:       rename.root,
+		SourcePath: rename.sourcePath,
+		TargetPath: rename.targetPath,
+	}
+	f.removeDirIfEmpty(filepath.Dir(from))
 }
 
 func (f *fsys) deleteFile(delete delete) {
 	log.Debug("delete", "path", delete.path)
-	defer func() {
-		f.events <- fs.Deleted{Path: delete.path}
-	}()
 	err := os.Remove(delete.path)
 	if err != nil {
 		f.events <- fs.Error{Path: delete.path, Error: err}
+		return
 	}
-	fsys := os.DirFS(filepath.Dir(delete.path))
+	f.events <- fs.Deleted{Path: delete.path}
+	f.removeDirIfEmpty(filepath.Dir(delete.path))
+}
+
+func (f *fsys) removeDirIfEmpty(path string) {
+	fsys := os.DirFS(path)
 
 	entries, _ := iofs.ReadDir(fsys, ".")
 	hasFiles := false
 	for _, entry := range entries {
 		if entry.Name() != ".DS_Store" && !strings.HasPrefix(entry.Name(), "._") {
-			hasFiles = true
-			break
+			info, err := entry.Info()
+			if err != nil {
+				f.events <- fs.Error{Path: path, Error: err}
+				return
+			}
+
+			size := int(info.Size())
+			if size > 0 {
+				hasFiles = true
+				break
+			}
 		}
 	}
 	if !hasFiles {
-		os.RemoveAll(delete.path)
+		os.RemoveAll(path)
 	}
 }

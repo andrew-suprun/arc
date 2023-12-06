@@ -55,8 +55,12 @@ func (s *fsys) scanArchive(scan scan) {
 			s.events <- fs.Error{Path: scan.root, Error: err}
 			return nil
 		}
-		sys := info.Sys().(*syscall.Stat_t)
+
 		size := int(info.Size())
+		if size == 0 {
+			return nil
+		}
+
 		modTime := info.ModTime()
 		modTime = modTime.UTC().Round(time.Second)
 
@@ -66,6 +70,8 @@ func (s *fsys) scanArchive(scan scan) {
 			Size:    size,
 			ModTime: modTime,
 		}
+
+		sys := info.Sys().(*syscall.Stat_t)
 		readMeta := metaMap[sys.Ino]
 		if readMeta != nil && readMeta.ModTime == modTime && readMeta.Size == size {
 			file.Hash = readMeta.Hash
